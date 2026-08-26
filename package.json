@@ -1,0 +1,70 @@
+{
+  "name": "desk-pulse",
+  "version": "1.0.0",
+  "description": "DeskPulse · 桌面系统监控小组件 (Electron Widget)。透明、无边框、始终置顶，显示 CPU / 内存 / 存储 / 网络 / GPU / 电池 / 日期，支持深色浅色主题、系统托盘、开机自启。",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --publish never",
+    "build:dir": "electron-builder --win --dir --publish never"
+  },
+  "keywords": [
+    "electron",
+    "desktop-widget",
+    "system-monitor",
+    "desk-pulse",
+    "windows",
+    "always-on-top",
+    "system-tray"
+  ],
+  "author": "Lava",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LavaIT/DeskPulse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LavaIT/DeskPulse/issues"
+  },
+  "homepage": "https://github.com/LavaIT/DeskPulse#readme",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "systeminformation": "^5.21.0"
+  },
+  "build": {
+    "appId": "com.lava.deskpulse",
+    "productName": "DeskPulse",
+    "copyright": "Copyright © Lava (MIT License)",
+    "publish": null,
+    "directories": {
+      "output": "build-output"
+    },
+    "files": [
+      "main.js",
+      "index.html",
+      "renderer.js",
+      "style.css",
+      "assets/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico"
+    }
+  }
+}

@@ -1,0 +1,278 @@
+/* style.css —— DeskPulse 专业风样式
+   设计取向：克制中性色板、表格化数字、细线分隔，靠层级而非色彩承载信息。
+   主题由 <html data-theme="..."> 控制：:root 为浅色（默认），[data-theme="dark"] 覆盖为深色。 */
+
+/* ============================================================
+   浅色主题（默认 :root）
+   ============================================================ */
+:root {
+  --bg-color: rgba(250, 250, 252, 0.88);   /* 浅色面板：高不透明度，弱玻璃 */
+  --text-color: #1a1d23;                    /* 主文字 */
+  --muted-color: #6b7280;                   /* 标签 / 次要文字 */
+  --accent-color: #2c6e8a;                  /* 单一克制强调色（仅用于点缀） */
+  --divider-color: rgba(0, 0, 0, 0.08);     /* 细线分隔 */
+  --border-color: rgba(0, 0, 0, 0.09);      /* 面板描边 */
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+  --toggle-bg: rgba(0, 0, 0, 0.04);
+  --toggle-bg-hover: rgba(0, 0, 0, 0.10);
+  --border-radius: 12px;
+  --font-family: 'SF Mono', 'JetBrains Mono', 'Cascadia Code', 'Menlo', 'Consolas', 'Microsoft YaHei', monospace;
+}
+
+/* ============================================================
+   深色主题
+   ============================================================ */
+[data-theme="dark"] {
+  --bg-color: rgba(18, 20, 24, 0.82);       /* 深色面板：偏实，弱玻璃 */
+  --text-color: #e7e9ec;                    /* 主文字（柔白，非纯白） */
+  --muted-color: #7e8590;                   /* 标签灰 */
+  --accent-color: #6aa9c9;                   /* 克制青蓝 */
+  --divider-color: rgba(255, 255, 255, 0.07);
+  --border-color: rgba(255, 255, 255, 0.09);
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --toggle-bg: rgba(255, 255, 255, 0.05);
+  --toggle-bg-hover: rgba(255, 255, 255, 0.12);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  background: transparent;
+  font-family: var(--font-family);
+  color: var(--text-color);
+  user-select: none;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   面板容器
+   ============================================================ */
+.widget {
+  position: relative;                       /* 主题按钮绝对定位参照 */
+  background: var(--bg-color);
+  backdrop-filter: blur(6px);              /* 弱玻璃：6px，避免浮夸 */
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: var(--border-radius);
+  padding: 14px 16px 30px;                  /* 底部留 16px 给主题按钮 */
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow);
+}
+
+/* ============================================================
+   通用行 / 标签 / 数值
+   ============================================================ */
+.row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+/* 第一行：日期时间 + 系统 —— 同时是顶部 50px 拖拽区 */
+.row-top {
+  -webkit-app-region: drag;                /* 拖拽区 */
+  min-height: 50px;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--divider-color);
+  padding-bottom: 10px;
+}
+
+.datetime {
+  color: var(--text-color);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.osname {
+  color: var(--accent-color);   /* 系统名用蓝色强调 */
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* 第二行：电源 —— 标签在左、值在右 */
+.row-power {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--divider-color);
+  padding: 9px 0;
+}
+
+/* 并排两列行 */
+.row-split {
+  justify-content: stretch;
+  padding: 9px 0;
+}
+
+.row-split + .row-split {
+  border-top: 1px solid var(--divider-color);
+}
+
+.metric {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* 第二列加左竖线分隔 */
+.row-split .metric + .metric {
+  border-left: 1px solid var(--divider-color);
+  padding-left: 14px;
+  margin-left: 2px;
+}
+
+/* 标签：大写小号、字距加宽，工具感 */
+.label {
+  color: var(--muted-color);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* 数值：中性主色、表格化数字，等宽对齐；超长（如 GPU 名）省略号截断 */
+.value {
+  color: var(--text-color);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 电源值继承主色，状态文字用 muted 收敛（不再用黄/绿彩虹色） */
+.battery {
+  color: var(--text-color);
+  font-size: 12.5px;
+}
+
+/* 网速：方向箭头与数值同为主色，nowrap 防止折行 */
+.net .value {
+  color: var(--text-color);
+  white-space: nowrap;
+}
+
+/* ============================================================
+   存储多盘列表（全宽行）
+   ============================================================ */
+.row-block {
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--divider-color);
+}
+.row-block .label {
+  min-width: 34px;          /* 让 DISK 标签宽度固定，列表对齐 */
+  padding-top: 1px;
+}
+.disk-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.disk-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.disk-item .m {               /* 盘符：C: / D: 等 */
+  color: var(--muted-color);
+}
+.disk-item .v {               /* 用量数值 */
+  color: var(--text-color);
+}
+
+/* ============================================================
+   网速全宽行
+   ============================================================ */
+.row-net {
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 9px 0;
+  border-top: 1px solid var(--divider-color);
+}
+.row-net .value {
+  display: flex;
+  gap: 14px;
+  overflow: visible;          /* 两个速度值不截断 */
+}
+
+/* ============================================================
+   主题切换按钮：几何符号（◐/●/○），非 emoji，文字色 muted→text
+   ============================================================ */
+.theme-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--toggle-bg);
+  color: var(--muted-color);
+  -webkit-app-region: no-drag;
+  opacity: 0.6;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  user-select: none;
+}
+
+.theme-toggle:hover {
+  opacity: 1;
+  background: var(--toggle-bg-hover);
+  color: var(--text-color);
+}
+
+/* ============================================================
+   菜单按钮（⋮）：与主题按钮并排，触发右键式菜单（切换主题/重置位置/退出）
+   ============================================================ */
+.menu-btn {
+  position: absolute;
+  right: 34px;              /* 在主题按钮左侧 */
+  bottom: 6px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--toggle-bg);
+  color: var(--muted-color);
+  -webkit-app-region: no-drag;
+  opacity: 0.6;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  user-select: none;
+}
+
+.menu-btn:hover {
+  opacity: 1;
+  background: var(--toggle-bg-hover);
+  color: var(--text-color);
+}

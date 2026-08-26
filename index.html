@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 简单 CSP：允许本地脚本与样式（nodeIntegration 已开启，仅本地使用）-->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <link rel="stylesheet" href="style.css">
+  <title>DeskPulse 桌面监控</title>
+</head>
+<body>
+  <!-- 面板容器：所有内容都放在 .widget 内 -->
+  <div class="widget">
+
+    <!-- 第一行（顶部 50px 拖拽区）：日期时间（左） + 操作系统（右） -->
+    <div class="row row-top">
+      <span id="datetime" class="datetime">--</span>
+      <span id="osname" class="osname">--</span>
+    </div>
+
+    <!-- 第二行：电源（电池或台式机） -->
+    <div class="row row-power">
+      <span class="label">POWER</span>
+      <span id="battery" class="value battery">检测中…</span>
+    </div>
+
+    <!-- 第三行：CPU + 内存 -->
+    <div class="row row-split">
+      <div class="metric">
+        <span class="label">CPU</span>
+        <span id="cpu" class="value">--</span>
+      </div>
+      <div class="metric">
+        <span class="label">MEM</span>
+        <span id="mem" class="value">--</span>
+      </div>
+    </div>
+
+    <!-- 第四行：GPU（静态信息，整行独占） -->
+    <div class="row row-block">
+      <span class="label">GPU</span>
+      <span id="gpu" class="value">--</span>
+    </div>
+
+    <!-- 第五行：存储（多盘列表，全宽） -->
+    <div class="row row-block">
+      <span class="label">DISK</span>
+      <div id="disklist" class="disk-list"><div class="disk-item">--</div></div>
+    </div>
+
+    <!-- 第六行：网速（全宽） -->
+    <div class="row row-net">
+      <span class="label">NET</span>
+      <span class="value">
+        <span id="netdown">↓ --</span>
+        <span id="netup">↑ --</span>
+      </span>
+    </div>
+
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
