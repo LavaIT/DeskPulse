@@ -1,0 +1,25 @@
+# ===== Electron / Node 构建产物 =====
+node_modules/
+dist/
+build-output/
+out/
+release/
+.cache/
+
+# ===== 本地运行时用户数据（桌面小组件的窗口位置、缓存、登录项等）=====
+userData/
+
+# ===== 系统 / 编辑器 =====
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ===== 日志 =====
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
