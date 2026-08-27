@@ -3,7 +3,7 @@
 //       处理 IPC（鼠标穿透切换、高度自适应、右键式菜单、退出）；
 //       记忆窗口上次位置。
 
-const { app, BrowserWindow, ipcMain, screen, Menu, Tray, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Menu, Tray, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -21,6 +21,26 @@ function loadState() {
 }
 function saveState(state) {
   try { fs.writeFileSync(stateFile, JSON.stringify(state)); } catch (e) { /* 忽略写入失败 */ }
+}
+
+// 用户偏好文件（主题等，替代 localStorage，打包后更可靠）
+const prefsFile = path.join(userDataPath, 'preferences.json');
+function loadPrefs() {
+  try { return JSON.parse(fs.readFileSync(prefsFile, 'utf8')) || {}; }
+  catch (e) { return {}; }
+}
+function savePrefs(prefs) {
+  try { fs.writeFileSync(prefsFile, JSON.stringify(prefs, null, 2)); } catch (e) {}
+}
+
+// 静态硬件信息缓存（GPU 名称/显存、内存总量、磁盘列表 — 下次启动直接读，不等 WMI）
+const hwCacheFile = path.join(userDataPath, 'hw-cache.json');
+function loadHwCache() {
+  try { return JSON.parse(fs.readFileSync(hwCacheFile, 'utf8')) || {}; }
+  catch (e) { return {}; }
+}
+function saveHwCache(cache) {
+  try { fs.writeFileSync(hwCacheFile, JSON.stringify(cache, null, 2)); } catch (e) {}
 }
 
 const WINDOW_WIDTH = 320;
@@ -131,6 +151,47 @@ function createWindow() {
 }
 
 // ============================================================
+// 关于对话框
+// ============================================================
+function showAbout() {
+  dialog.showMessageBox({
+    type: 'info',
+    title: '关于 DeskPulse',
+    message: `DeskPulse v${app.getVersion()}`,
+    detail: '桌面系统监控小组件\n\nCopyright © Lava (MIT License)\nhttps://github.com/LavaIT/DeskPulse',
+    buttons: ['确定'],
+    icon: path.join(__dirname, 'assets', 'icon.ico')
+  });
+}
+
+// ============================================================
+// 设置窗口（独立小窗口，有标题栏，极简）
+// ============================================================
+let settingsWin = null;
+
+function createSettingsWindow() {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    settingsWin.show();
+    settingsWin.focus();
+    return;
+  }
+  settingsWin = new BrowserWindow({
+    width: 360,
+    height: 220,
+    title: 'DeskPulse 设置',
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    webPreferences: {
+      contextIsolation: false,
+      nodeIntegration: true
+    }
+  });
+  settingsWin.loadFile('settings.html');
+  settingsWin.on('closed', () => { settingsWin = null; });
+}
+
+// ============================================================
 // IPC 处理（注册一次，引用上层 win 变量）
 // ============================================================
 
@@ -148,7 +209,42 @@ ipcMain.on('resize', (event, height) => {
   }
 });
 
-// 渲染进程请求弹出右键式菜单（切换主题 / 重置位置 / 退出）
+// 设置窗口 IPC：查询 / 设置开机自启
+ipcMain.on('get-auto-launch', (e) => {
+  e.returnValue = app.getLoginItemSettings().openAtLogin;
+});
+ipcMain.on('set-auto-launch', (e, enabled) => {
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      path: process.execPath,
+      args: []
+    });
+  } catch (err) { /* 无权限时静默失败 */ }
+  e.returnValue = app.getLoginItemSettings().openAtLogin;
+});
+
+// 用户偏好 IPC：get-pref(key) → value / set-pref(key, value) → true
+ipcMain.on('get-pref', (e, key) => {
+  e.returnValue = loadPrefs()[key];
+});
+ipcMain.on('set-pref', (e, key, value) => {
+  const prefs = loadPrefs();
+  prefs[key] = value;
+  savePrefs(prefs);
+  e.returnValue = true;
+});
+
+// 硬件缓存 IPC：get-hw-cache() → cacheObj / set-hw-cache(cacheObj) → true
+ipcMain.on('get-hw-cache', (e) => {
+  e.returnValue = loadHwCache();
+});
+ipcMain.on('set-hw-cache', (e, cache) => {
+  saveHwCache(cache);
+  e.returnValue = true;
+});
+
+// 渲染进程请求弹出右键式菜单（切换主题 / 重置位置 / 设置 / 关于 / 退出）
 ipcMain.on('show-context-menu', () => {
   if (!win || win.isDestroyed()) return;
   const menu = Menu.buildFromTemplate([
@@ -159,6 +255,15 @@ ipcMain.on('show-context-menu', () => {
     {
       label: '重置到右上角',
       click: () => resetPosition()
+    },
+    { type: 'separator' },
+    {
+      label: '设置...',
+      click: () => createSettingsWindow()
+    },
+    {
+      label: '关于',
+      click: () => showAbout()
     },
     { type: 'separator' },
     {
@@ -218,12 +323,9 @@ function createTray() {
   rebuildTrayMenu();
 }
 
-// 根据开机自启状态重建托盘右键菜单（开/关"开机自启"需要动态更新 checked 状态）
+// 重建托盘右键菜单（窗口显隐状态变化时刷新菜单文字）
 function rebuildTrayMenu() {
   if (!tray || tray.isDestroyed()) return;
-  // 当前开机自启状态
-  const login = app.getLoginItemSettings();
-  const autoLaunch = login.openAtLogin;
   const visible = win && !win.isDestroyed() && win.isVisible();
 
   const template = [
@@ -250,29 +352,18 @@ function rebuildTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: '开机自启',
-      type: 'checkbox',
-      checked: !!autoLaunch,
-      click: (item) => {
-        // 勾选后用 setLoginItemSettings 写入注册表（Windows）
-        // path 用 process.execPath（electron.exe）——打包成 exe 后会自动变成 DeskPulse.exe
-        // args 空数组即可（直接启动）
-        try {
-          app.setLoginItemSettings({
-            openAtLogin: item.checked,
-            path: process.execPath,
-            args: []
-          });
-        } catch (e) { /* 无权限时静默失败，菜单勾选状态会在下一次 rebuild 回到原值 */ }
-        // 立即重建菜单，反映最新状态（setLoginItemSettings 未必同步成功，下次点击兜底）
-        setTimeout(rebuildTrayMenu, 100);
-      }
+      label: '设置...',
+      click: () => createSettingsWindow()
+    },
+    {
+      label: '关于',
+      click: () => showAbout()
     },
     { type: 'separator' },
     {
       label: '退出 DeskPulse',
       click: () => {
-        _quitting = true;   // 解除窗口 close 拦截 → 真关
+        _quitting = true;
         app.quit();
       }
     }

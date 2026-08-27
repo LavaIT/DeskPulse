@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeskPulse 设置</title>
+  <style>
+    /* 极简专业风，与主组件保持一致的色彩语言 */
+    :root {
+      --bg: #fafafc;
+      --text: #1a1d23;
+      --muted: #6b7280;
+      --border: rgba(0, 0, 0, 0.09);
+      --accent: #2c6e8a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #18141c;
+        --text: #e7e9ec;
+        --muted: #7e8590;
+        --border: rgba(255, 255, 255, 0.09);
+        --accent: #6aa9c9;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'SF Mono', 'JetBrains Mono', 'Cascadia Code', 'Menlo', 'Consolas', 'Microsoft YaHei', monospace;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+    }
+    h1 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+    .setting-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .setting-item:last-of-type { border-bottom: none; }
+    .setting-label {
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .setting-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    /* 开关组件 */
+    .switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 11px;
+      transition: background 0.2s;
+    }
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .switch input:checked + .slider {
+      background: var(--accent);
+    }
+    .switch input:checked + .slider::before {
+      transform: translateX(18px);
+    }
+    .footer {
+      margin-top: auto;
+      padding-top: 16px;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      user-select: none;
+    }
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>设置</h1>
+
+  <div class="setting-item">
+    <div>
+      <div class="setting-label">开机自启</div>
+      <div class="setting-hint">登录时自动启动 DeskPulse</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="autolaunch">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="footer">
+    DeskPulse v1.0.1 · <a id="gh-link">GitHub</a> · MIT
+  </div>
+
+  <script>
+    const { ipcRenderer, shell } = require('electron');
+    const checkbox = document.getElementById('autolaunch');
+
+    // 读取当前开机自启状态
+    checkbox.checked = ipcRenderer.sendSync('get-auto-launch');
+
+    // 切换时写入注册表，用实际返回值校正（无权限时会被系统拒绝）
+    checkbox.addEventListener('change', () => {
+      const result = ipcRenderer.sendSync('set-auto-launch', checkbox.checked);
+      checkbox.checked = result;
+    });
+
+    // 外部链接用系统浏览器打开
+    document.getElementById('gh-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      shell.openExternal('https://github.com/LavaIT/DeskPulse');
+    });
+  </script>
+</body>
+</html>

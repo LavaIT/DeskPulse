@@ -10,10 +10,23 @@ const fs = require('fs');
 const si = require('systeminformation');
 
 // ============================================================
-// 一、主题系统：跟随系统深色/浅色 + 手动切换（localStorage 持久化）
+// 偏好读写封装（替代 localStorage，持久化到 userData/preferences.json）
+// ============================================================
+function getPref(key) {
+  return ipcRenderer.sendSync('get-pref', key);
+}
+function setPref(key, value) {
+  ipcRenderer.sendSync('set-pref', key, value);
+}
+
+// 启动时读取硬件缓存（GPU 名称/显存、内存总量、磁盘列表 — 不变的静态信息）
+const hwCache = ipcRenderer.sendSync('get-hw-cache');
+
+// ============================================================
+// 一、主题系统：跟随系统深色/浅色 + 手动切换（偏好文件持久化）
 // 仅修改 CSS 变量（data-theme 属性），不涉及主进程
 // ============================================================
-const THEME_KEY = 'desk-pulse-theme';
+const THEME_KEY = 'theme';
 
 // 动态创建主题切换按钮（不修改 index.html），插入到 .widget 右下角
 const toggleBtn = document.createElement('button');
@@ -37,9 +50,9 @@ function currentTheme() {
   return document.documentElement.getAttribute('data-theme') || getSystemTheme();
 }
 
-// 是否存在手动偏好（localStorage 存 'dark'/'light' 视为手动覆盖）
+// 是否存在手动偏好（偏好文件存 'dark'/'light' 视为手动覆盖）
 function isManualOverride() {
-  const v = localStorage.getItem(THEME_KEY);
+  const v = getPref(THEME_KEY);
   return v === 'dark' || v === 'light';
 }
 
@@ -60,14 +73,14 @@ function updateToggleUI() {
 // 切换主题（按钮点击与菜单都走这个）
 function toggleTheme() {
   const next = currentTheme() === 'dark' ? 'light' : 'dark';
-  localStorage.setItem(THEME_KEY, next);
+  setPref(THEME_KEY, next);
   applyTheme(next);
   updateToggleUI();
 }
 
-// 初始化：优先 localStorage，否则跟随系统
+// 初始化：优先偏好文件，否则跟随系统
 (function initTheme() {
-  const stored = localStorage.getItem(THEME_KEY);
+  const stored = getPref(THEME_KEY);
   const initial = isManualOverride() ? stored : getSystemTheme();
   applyTheme(initial);
   updateToggleUI();
@@ -87,7 +100,7 @@ toggleBtn.addEventListener('click', toggleTheme);
 // 双击：清除手动偏好，恢复跟随系统
 toggleBtn.addEventListener('dblclick', (e) => {
   e.preventDefault();
-  localStorage.removeItem(THEME_KEY);
+  setPref(THEME_KEY, null);
   applyTheme(getSystemTheme());
   updateToggleUI();
 });
@@ -193,11 +206,8 @@ document.getElementById('osname').textContent = getOSName();
 
 // ============================================================
 // 七、网速：网卡白名单筛选 + 工具函数
-// 关键修正：之前汇总 si.networkStats() 全接口，会把 Hyper-V/VMware/WSL/Docker/Loopback
-// 等虚拟网卡的流量也算进来，导致数值虚高或重复。改为"默认路由网卡优先"的两级筛选：
-//   1) 若能解析到默认路由对应接口 → 只统计该接口
-//   2) 否则 → 用 iface / operstate / virtual / 关键字黑名单过滤
-// 网速必须通过两次轮询 si.networkStats() 的字节差值计算，不能直接显示累计流量
+// 性能优化：接口识别（WMI 查询）移出每秒热路径，改为后台 60s 刷新一次。
+// 热路径只调 si.networkStats()（纯计数器读取，不走 WMI），按缓存接口名过滤。
 // ============================================================
 let prevNet = { rx: 0, tx: 0, ts: 0 };
 const GB = 1024 * 1024 * 1024;
@@ -217,23 +227,17 @@ function isVirtualName(s) {
   return VIRTUAL_KEYWORDS.some(k => l.includes(k.toLowerCase()));
 }
 
-// 缓存默认路由接口名，每 60 秒重新识别一次（VPN 切换/断线重连时会变）
-let _defaultIfaceCache = { iface: null, ts: 0 };
-const DEFAULT_CACHE_TTL = 60000;
+// 缓存活跃接口名（后台刷新，不在每秒热路径里调 WMI）
+let _activeIface = null;
 
-async function detectDefaultIface() {
-  const now = Date.now();
-  if (_defaultIfaceCache.iface && now - _defaultIfaceCache.ts < DEFAULT_CACHE_TTL) {
-    return _defaultIfaceCache.iface;
-  }
+async function refreshActiveIface() {
   try {
     const [gw, ifaces] = await Promise.all([
       si.networkGatewayDefault().catch(() => null),
       si.networkInterfaces().catch(() => [])
     ]);
-    let hit = null;
+    // 1) 默认路由网关 IP 与接口 IP 落在同网段 → 就是它
     if (typeof gw === 'string' && gw) {
-      // 默认路由网关 IP 与接口 IP 落在同一网段 → 就是这个接口
       const gwParts = gw.split('.').map(Number);
       const gwValid = gwParts.length === 4 && gwParts.every(n => Number.isInteger(n) && n >= 0 && n < 256);
       if (gwValid) {
@@ -241,48 +245,27 @@ async function detectDefaultIface() {
           if (!n.ip4) continue;
           const ip = n.ip4.split('.').map(Number);
           if (ip.length === 4 && ip[0] === gwParts[0] && ip[1] === gwParts[1] && ip[2] === gwParts[2]) {
-            hit = n.iface;
-            break;
+            _activeIface = n.iface;
+            return;
           }
         }
       }
     }
-    _defaultIfaceCache = { iface: hit, ts: now };
-    return hit;
-  } catch (e) {
-    return null;
-  }
+    // 2) 回退：第一个非虚拟、up、有 ip4 的接口
+    for (const n of ifaces || []) {
+      if (!n.virtual && !isVirtualName(n.iface) && !isVirtualName(n.ifaceName) &&
+          (n.operstate === 'up' || n.operstate === 'unknown') &&
+          n.ip4 && n.ip4 !== '127.0.0.1') {
+        _activeIface = n.iface;
+        return;
+      }
+    }
+  } catch (e) { /* 静默失败，下次刷新重试 */ }
 }
 
-// 给定 networkStats 数组，返回应统计的接口集合（数组子集）
-async function pickNetInterfaces(netStats) {
-  const defIface = await detectDefaultIface();
-  if (defIface) {
-    const found = (netStats || []).filter(n => n.iface === defIface);
-    if (found.length) return found;
-  }
-  // 回退：基于接口清单的黑名单筛选
-  try {
-    const ifaces = (await si.networkInterfaces().catch(() => [])) || [];
-    const goodNames = new Set(
-      ifaces
-        .filter(n => !n.virtual &&
-                     !isVirtualName(n.iface) && !isVirtualName(n.ifaceName) &&
-                     (n.operstate === 'up' || n.operstate === 'unknown') &&
-                     n.ip4 && n.ip4 !== '127.0.0.1')
-        .map(n => n.iface)
-    );
-    // 如果过滤后全没了（兜底），保留 stats 中 operstate===up 的那些
-    let picked = (netStats || []).filter(n =>
-      goodNames.has(n.iface) ||
-      (n.operstate === 'up' && !isVirtualName(n.iface))
-    );
-    if (picked.length === 0) picked = (netStats || []).filter(n => n.operstate === 'up');
-    return picked;
-  } catch (e) {
-    return netStats || [];
-  }
-}
+// 启动时识别一次，之后每 60s 后台刷新（VPN 切换/断线重连时自动跟上）
+refreshActiveIface();
+setInterval(refreshActiveIface, 60000);
 
 // 把字节数/秒格式化为 B/s、KB/s 或 MB/s
 function formatSpeed(bytesPerSec) {
@@ -306,47 +289,103 @@ function formatDuration(minutes) {
 
 // ============================================================
 // 八、GPU 静态信息（仅加载时取一次，名称/显存不会变）
-// 注意：si.graphics() 在不同平台/驱动上 ctrl.name 与 ctrl.model 稳定性不一致，
-// Windows 上常见 name=undefined 但 model=有值，必须两者兜底。
+// 性能优化：有缓存 → 直接渲染，跳过 si.graphics()（WMI 查询太慢）
+//           无缓存 → 先用 PowerShell Win32_VideoController（快），再回退 si.graphics()
 // ============================================================
+const { exec } = require('child_process');
+
+function execCmd(cmd, timeoutMs = 3000) {
+  return new Promise((resolve, reject) => {
+    exec(cmd, { timeout: timeoutMs, encoding: 'utf8' }, (err, stdout) => {
+      if (err) reject(err);
+      else resolve(stdout);
+    });
+  });
+}
+
 async function initGPU() {
   const el = document.getElementById('gpu');
-  try {
-    const g = await si.graphics();
-    const ctrl = (g.controllers && g.controllers[0]) || null;
-    // 型号字段优先 name，回退 model（Windows 常见情形），再回退 vendor
-    const model = ctrl && (ctrl.name || ctrl.model || (ctrl.vendor && `显卡 · ${ctrl.vendor}`));
-    if (!model) { el.textContent = '—'; return; }
-    const parts = [];
-    parts.push(model.replace(/\s+/g, ' ').trim());
-    // vram 单位判断：systeminformation 在独立显卡上通常返回 GB，
-    // 在集成显卡（Intel UHD/Hyper-V 虚拟）上常返回 MB。
-    // 简单阈值：> 128 认为是 MB，否则是 GB。
-    // 统一格式化为整数 GB（2047MB → 2GB）
-    if (ctrl && typeof ctrl.vram === 'number' && ctrl.vram > 0) {
-      const v = ctrl.vram;
-      const vramGB = (v > 128) ? v / 1024 : v; // >128 视为 MB 单位
-      parts.push(`${Math.round(vramGB)}GB`);
-    }
-    // GPU 温度若可用就附带
-    if (ctrl && typeof ctrl.temperatureGpu === 'number' && ctrl.temperatureGpu > 0) {
-      parts.push(`${ctrl.temperatureGpu}°C`);
-    }
+
+  // 1) 有缓存 → 直接渲染，不再查询（GPU 型号不会变）
+  if (hwCache.gpu && hwCache.gpu.model) {
+    const parts = [hwCache.gpu.model];
+    if (hwCache.gpu.vram) parts.push(`${hwCache.gpu.vram}GB`);
     const text = parts.join(' · ');
     el.textContent = text;
-    el.title = text; // 超长名省略号截断时，悬停看完整内容
-  } catch (e) {
-    el.textContent = '—';
+    el.title = text;
+    return; // 跳过 si.graphics()，避免几分钟卡死
   }
+
+  // 2) 无缓存 → 先用 PowerShell WMI 查（比 si.graphics 快 10 倍）
+  try {
+    const out = await execCmd(
+      'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM | ConvertTo-Json"',
+      4000
+    );
+    const data = JSON.parse(out.trim());
+    const ctrl = Array.isArray(data) ? data[0] : data;
+    if (ctrl && ctrl.Name) {
+      const cleanModel = String(ctrl.Name).replace(/\s+/g, ' ').trim();
+      let vramGB = null;
+      // AdapterRAM 单位是字节，但 Win32 32 位字段上限 4GB
+      if (ctrl.AdapterRAM && ctrl.AdapterRAM > 0) {
+        vramGB = Math.round(ctrl.AdapterRAM / (1024 * 1024 * 1024));
+        if (vramGB > 4) vramGB = 4; // 32 位溢出保护
+      }
+      const parts = [cleanModel];
+      if (vramGB && vramGB > 0) parts.push(`${vramGB}GB`);
+      const text = parts.join(' · ');
+      el.textContent = text;
+      el.title = text;
+      hwCache.gpu = { model: cleanModel, vram: vramGB };
+      ipcRenderer.sendSync('set-hw-cache', hwCache);
+      return;
+    }
+  } catch (e) { /* PowerShell 失败，继续回退 */ }
+
+  // 3) 回退：si.graphics() 带 3s 超时（最后手段）
+  try {
+    const g = await Promise.race([
+      si.graphics(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
+    ]);
+    const ctrl = (g.controllers && g.controllers[0]) || null;
+    const model = ctrl && (ctrl.name || ctrl.model || (ctrl.vendor && `显卡 · ${ctrl.vendor}`));
+    if (model) {
+      const cleanModel = model.replace(/\s+/g, ' ').trim();
+      let vramGB = null;
+      if (ctrl && typeof ctrl.vram === 'number' && ctrl.vram > 0) {
+        vramGB = Math.round((ctrl.vram > 128) ? ctrl.vram / 1024 : ctrl.vram);
+      }
+      const parts = [cleanModel];
+      if (vramGB) parts.push(`${vramGB}GB`);
+      const text = parts.join(' · ');
+      el.textContent = text;
+      el.title = text;
+      hwCache.gpu = { model: cleanModel, vram: vramGB };
+      ipcRenderer.sendSync('set-hw-cache', hwCache);
+      return;
+    }
+  } catch (e) { /* 超时：保持 '—' */ }
+
+  el.textContent = '—';
 }
 initGPU();
 
 // ============================================================
 // 九、分指标采集（每指标独立 try/catch，互不影响）
 // ============================================================
-async function safe(fn) {
-  try { await fn(); } catch (e) { /* 单指标失败不影响其他 */ }
+async function safe(fn, timeoutMs = 3000) {
+  try {
+    await Promise.race([
+      fn(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs))
+    ]);
+  } catch (e) { /* 单指标失败/超时不影响其他 */ }
 }
+
+// 标记 hwCache 是否有变更，待 updateHardware 结束后统一写一次文件
+let _hwCacheDirty = false;
 
 async function updateCPU() {
   const load = await si.currentLoad();
@@ -358,14 +397,36 @@ async function updateMem() {
   const pct = (mem.active / mem.total) * 100;
   document.getElementById('mem').textContent =
     `${pct.toFixed(0)}%  ${(mem.active / GB).toFixed(1)}/${(mem.total / GB).toFixed(1)} GB`;
+  // 缓存内存总量（不变的静态值，下次启动可立即渲染）
+  if (hwCache.memTotal !== mem.total) {
+    hwCache.memTotal = mem.total;
+    _hwCacheDirty = true;
+  }
 }
 
 async function updateDisk() {
   const list = await si.fsSize();
   const el = document.getElementById('disklist');
   if (!list || !list.length) {
-    el.innerHTML = '<div class="disk-item"><span class="m">—</span></div>';
+    // si.fsSize 暂时失败，用缓存盘列表兜底显示总量
+    if (hwCache.disks && hwCache.disks.length) {
+      el.innerHTML = hwCache.disks.map(d => {
+        const m = d.mount.length > 8 ? d.mount.slice(0, 8) + '…' : d.mount;
+        return `<div class="disk-item"><span class="m">${m}</span><span class="v">— / ${(d.size / GB).toFixed(0)}GB</span></div>`;
+      }).join('');
+    } else {
+      el.innerHTML = '<div class="disk-item"><span class="m">—</span></div>';
+    }
     return;
+  }
+  // 缓存磁盘静态信息（mount + size 不变，只有 available 在变）
+  const newDisks = list.map(f => ({ mount: f.mount || f.fs || '?', size: f.size }));
+  const cacheChanged = !hwCache.disks ||
+    hwCache.disks.length !== newDisks.length ||
+    newDisks.some((d, i) => d.mount !== hwCache.disks[i].mount || d.size !== hwCache.disks[i].size);
+  if (cacheChanged) {
+    hwCache.disks = newDisks;
+    _hwCacheDirty = true;
   }
   el.innerHTML = list.map(f => {
     const used = f.size - f.available;
@@ -395,20 +456,30 @@ async function updateBattery() {
 
 async function updateNet() {
   const rawStats = await si.networkStats();
-  // 先过滤虚拟/内部网卡，再汇总字节（默认路由优先 + 黑名单兜底两级筛选）
-  const net = await pickNetInterfaces(rawStats);
+  // 时间戳在数据读取后立即取，不包含后续过滤时间，保证 dt 精确
+  const nowTs = Date.now();
+
+  // 按缓存的活跃接口名过滤（纯内存比较，不走 WMI）
+  let net;
+  if (_activeIface) {
+    net = rawStats.filter(n => n.iface === _activeIface);
+  }
+  if (!net || !net.length) {
+    // 回退：operstate up + 非虚拟名
+    net = rawStats.filter(n => n.operstate === 'up' && !isVirtualName(n.iface));
+  }
+  if (!net.length) net = rawStats; // 最后兜底
+
   const totalRx = net.reduce((s, n) => s + (n.rx_bytes || 0), 0);
   const totalTx = net.reduce((s, n) => s + (n.tx_bytes || 0), 0);
-  const nowTs = Date.now();
 
   let rxSpeed = 0;
   let txSpeed = 0;
   if (prevNet.ts > 0) {
-    const dt = (nowTs - prevNet.ts) / 1000; // 经过的秒数
-    if (dt > 0) {
-      // 计算差值；若计数器被重置（新值更小），则用新值作为本次增量
-      rxSpeed = totalRx >= prevNet.rx ? (totalRx - prevNet.rx) / dt : totalRx / dt;
-      txSpeed = totalTx >= prevNet.tx ? (totalTx - prevNet.tx) / dt : totalTx / dt;
+    const dt = (nowTs - prevNet.ts) / 1000;
+    if (dt > 0.1) { // 防止 dt 过小导致除零（<100ms 跳过本次）
+      rxSpeed = totalRx >= prevNet.rx ? (totalRx - prevNet.rx) / dt : 0;
+      txSpeed = totalTx >= prevNet.tx ? (totalTx - prevNet.tx) / dt : 0;
     }
   }
   prevNet = { rx: totalRx, tx: totalTx, ts: nowTs };
@@ -417,13 +488,28 @@ async function updateNet() {
   document.getElementById('netup').textContent = `↑ ${formatSpeed(txSpeed)}`;
 }
 
+// 所有指标并行采集 + 每指标 3 秒独立超时，不串行等待、不互相阻塞
+// _updating guard：防止上一轮还没跑完 setInterval 就触发下一轮（WMI 慢时排队导致 dt 趋零）
+let _updating = false;
 async function updateHardware() {
-  await safe(updateCPU);
-  await safe(updateMem);
-  await safe(updateDisk);
-  await safe(updateBattery);
-  await safe(updateNet);
-  resizeWindow();
+  if (_updating) return;
+  _updating = true;
+  try {
+    await Promise.all([
+      safe(updateCPU, 3000),
+      safe(updateMem, 3000),
+      safe(updateDisk, 3000),
+      safe(updateBattery, 3000),
+      safe(updateNet, 3500)
+    ]);
+    if (_hwCacheDirty) {
+      _hwCacheDirty = false;
+      ipcRenderer.sendSync('set-hw-cache', hwCache);
+    }
+    resizeWindow();
+  } finally {
+    _updating = false;
+  }
 }
 
 // 页面加载时立即执行一次，避免空白；之后每秒刷新

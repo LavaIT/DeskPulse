@@ -210,9 +210,13 @@ html, body {
   border-top: 1px solid var(--divider-color);
 }
 .row-net .value {
-  display: flex;
+  display: inline-flex;        /* 不再拉伸到 100%，按内容自适应宽度 */
+  flex: 0 0 auto;              /* 不收缩、不增长，避免被父级宽度挤压 */
   gap: 14px;
-  overflow: visible;          /* 两个速度值不截断 */
+  overflow: visible;
+  white-space: nowrap;
+  text-overflow: clip;         /* 网速数字永远不省略号，确保完整可读 */
+  min-width: 0;
 }
 
 /* ============================================================

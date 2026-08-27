@@ -1,6 +1,6 @@
 {
   "name": "desk-pulse",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "DeskPulse · 桌面系统监控小组件 (Electron Widget)。透明、无边框、始终置顶，显示 CPU / 内存 / 存储 / 网络 / GPU / 电池 / 日期，支持深色浅色主题、系统托盘、开机自启。",
   "main": "main.js",
   "scripts": {
@@ -47,6 +47,7 @@
       "index.html",
       "renderer.js",
       "style.css",
+      "settings.html",
       "assets/**/*",
       "node_modules/**/*",
       "package.json"
