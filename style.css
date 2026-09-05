@@ -153,6 +153,15 @@ html, body {
   text-overflow: ellipsis;
 }
 
+/* 子文本：CPU 型号等辅助信息，小号 muted，省略号截断 */
+.sub {
+  color: var(--muted-color);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* 电源值继承主色，状态文字用 muted 收敛（不再用黄/绿彩虹色） */
 .battery {
   color: var(--text-color);
@@ -279,4 +288,55 @@ html, body {
   opacity: 1;
   background: var(--toggle-bg-hover);
   color: var(--text-color);
+}
+
+/* ============================================================
+   紧凑模式（游戏/追剧贴角监控）：只显示 CPU/GPU/MEM/网速
+   宽度约 220px，单行布局，不显示按钮、标题、拖拽区分隔线
+   ============================================================ */
+.widget[data-compact="true"] .normal-content,
+.widget[data-compact="true"] .theme-toggle,
+.widget[data-compact="true"] .menu-btn {
+  display: none;
+}
+.widget[data-compact="true"] .compact-content {
+  display: block;
+}
+.widget[data-compact="true"] {
+  padding: 6px 10px;
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.compact-content { display: none; }
+.compact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  -webkit-app-region: drag;        /* 整行可拖动 */
+  font-size: 11px;
+  line-height: 1.4;
+}
+.compact-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.compact-label {
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-color);
+}
+.compact-value {
+  color: var(--text-color);
+  font-weight: 500;
+}
+.compact-net {
+  gap: 8px;
+  color: var(--text-color);
+  white-space: nowrap;
 }

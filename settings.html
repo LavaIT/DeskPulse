@@ -13,14 +13,12 @@
       --border: rgba(0, 0, 0, 0.09);
       --accent: #2c6e8a;
     }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #18141c;
-        --text: #e7e9ec;
-        --muted: #7e8590;
-        --border: rgba(255, 255, 255, 0.09);
-        --accent: #6aa9c9;
-      }
+    [data-theme="dark"] {
+      --bg: #18141c;
+      --text: #e7e9ec;
+      --muted: #7e8590;
+      --border: rgba(255, 255, 255, 0.09);
+      --accent: #6aa9c9;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -126,12 +124,30 @@
   </div>
 
   <div class="footer">
-    DeskPulse v1.0.1 · <a id="gh-link">GitHub</a> · MIT
+    DeskPulse v<span id="version">1.0.2</span> · <a id="gh-link">GitHub</a> · MIT
   </div>
 
   <script>
     const { ipcRenderer, shell } = require('electron');
     const checkbox = document.getElementById('autolaunch');
+
+    // 动态版本号
+    document.getElementById('version').textContent = ipcRenderer.sendSync('get-version');
+
+    // 主题同步：读取 preferences.json 中的手动偏好，无偏好时跟随系统
+    const storedTheme = ipcRenderer.sendSync('get-pref', 'theme');
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const theme = (storedTheme === 'dark' || storedTheme === 'light')
+      ? storedTheme
+      : (mql.matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+
+    // 监听主组件发来的主题切换
+    ipcRenderer.on('toggle-theme', () => {
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+    });
 
     // 读取当前开机自启状态
     checkbox.checked = ipcRenderer.sendSync('get-auto-launch');

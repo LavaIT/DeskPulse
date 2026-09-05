@@ -109,6 +109,44 @@ toggleBtn.addEventListener('dblclick', (e) => {
 ipcRenderer.on('toggle-theme', toggleTheme);
 
 // ============================================================
+// 一-2、紧凑模式开关：data-compact 属性 + 偏好持久化
+// ============================================================
+const COMPACT_KEY = 'compact';
+const COMPACT_WIDTH = 220;  // 紧凑模式窗口宽度
+
+function isCompact() {
+  return document.querySelector('.widget').getAttribute('data-compact') === 'true';
+}
+
+function applyCompact(on) {
+  const w = document.querySelector('.widget');
+  w.setAttribute('data-compact', on ? 'true' : 'false');
+  // 通知主进程调整窗口宽度 + 切换鼠标穿透策略（紧凑模式整区可拖不穿透）
+  ipcRenderer.send('set-compact', on, COMPACT_WIDTH, document.body.scrollHeight);
+  resizeWindow();
+}
+
+// 主进程触发紧凑模式切换
+ipcRenderer.on('toggle-compact', () => {
+  const next = !isCompact();
+  setPref(COMPACT_KEY, next);
+  applyCompact(next);
+});
+
+// 主进程同步当前紧凑状态（设置窗口 / 托盘菜单勾选用）
+ipcRenderer.on('set-compact-state', (_e, on) => {
+  applyCompact(on);
+});
+
+// 初始化紧凑模式：从偏好读取
+(function initCompact() {
+  const stored = getPref(COMPACT_KEY);
+  if (stored === true) {
+    applyCompact(true);
+  }
+})();
+
+// ============================================================
 // 二、菜单按钮（⋮）：触发右键式菜单（切换主题 / 重置位置 / 退出）
 // 用按钮而非右键，因为窗口主体鼠标穿透 + 顶部拖拽区，右键不可靠
 // ============================================================
@@ -287,8 +325,48 @@ function formatDuration(minutes) {
   return `${m}m`;
 }
 
+// 标记 hwCache 是否有变更，待采集结束后统一写一次文件
+// 提前声明，供 initCPUModel / initGPU 等静态函数设置
+let _hwCacheDirty = false;
+
 // ============================================================
-// 八、GPU 静态信息（仅加载时取一次，名称/显存不会变）
+// 八、CPU 静态型号（仅加载时取一次，用 os.cpus() 同步读取，不走 WMI）
+// ============================================================
+function initCPUModel() {
+  const el = document.getElementById('cpumodel');
+
+  // 有缓存 → 直接渲染
+  if (hwCache.cpuModel) {
+    el.textContent = hwCache.cpuModel;
+    el.title = hwCache.cpuModel;
+    return;
+  }
+
+  // os.cpus() 是同步的，不走 WMI，直接取
+  try {
+    const cpus = os.cpus();
+    if (cpus && cpus.length > 0 && cpus[0].model) {
+      // 清理冗余标记：Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz → Intel Core i7-9700K @ 3.60GHz
+      const model = cpus[0].model
+        .replace(/\(R\)/g, '')
+        .replace(/\(TM\)/g, '')
+        .replace(/\s+CPU\s/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      el.textContent = model;
+      el.title = model;
+      hwCache.cpuModel = model;
+      _hwCacheDirty = true;
+      return;
+    }
+  } catch (e) { /* 静默失败 */ }
+
+  el.textContent = '—';
+}
+initCPUModel();
+
+// ============================================================
+// 八-2、GPU 静态信息（仅加载时取一次，名称/显存不会变）
 // 性能优化：有缓存 → 直接渲染，跳过 si.graphics()（WMI 查询太慢）
 //           无缓存 → 先用 PowerShell Win32_VideoController（快），再回退 si.graphics()
 // ============================================================
@@ -384,19 +462,24 @@ async function safe(fn, timeoutMs = 3000) {
   } catch (e) { /* 单指标失败/超时不影响其他 */ }
 }
 
-// 标记 hwCache 是否有变更，待 updateHardware 结束后统一写一次文件
-let _hwCacheDirty = false;
-
 async function updateCPU() {
   const load = await si.currentLoad();
-  document.getElementById('cpu').textContent = `${Math.round(load.currentLoad)}%`;
+  const pct = `${Math.round(load.currentLoad)}%`;
+  document.getElementById('cpu').textContent = pct;
+  // 紧凑模式同步
+  const compact = document.getElementById('cpu-compact');
+  if (compact) compact.textContent = pct;
 }
 
 async function updateMem() {
   const mem = await si.mem();
   const pct = (mem.active / mem.total) * 100;
+  const pctText = `${pct.toFixed(0)}%`;
   document.getElementById('mem').textContent =
-    `${pct.toFixed(0)}%  ${(mem.active / GB).toFixed(1)}/${(mem.total / GB).toFixed(1)} GB`;
+    `${pctText}  ${(mem.active / GB).toFixed(1)}/${(mem.total / GB).toFixed(1)} GB`;
+  // 紧凑模式只写百分比
+  const compact = document.getElementById('mem-compact');
+  if (compact) compact.textContent = pctText;
   // 缓存内存总量（不变的静态值，下次启动可立即渲染）
   if (hwCache.memTotal !== mem.total) {
     hwCache.memTotal = mem.total;
@@ -484,23 +567,53 @@ async function updateNet() {
   }
   prevNet = { rx: totalRx, tx: totalTx, ts: nowTs };
 
-  document.getElementById('netdown').textContent = `↓ ${formatSpeed(rxSpeed)}`;
-  document.getElementById('netup').textContent = `↑ ${formatSpeed(txSpeed)}`;
+  const rxText = `↓ ${formatSpeed(rxSpeed)}`;
+  const txText = `↑ ${formatSpeed(txSpeed)}`;
+  document.getElementById('netdown').textContent = rxText;
+  document.getElementById('netup').textContent = txText;
+  // 紧凑模式同步
+  const dc = document.getElementById('netdown-compact');
+  const uc = document.getElementById('netup-compact');
+  if (dc) dc.textContent = rxText;
+  if (uc) uc.textContent = txText;
 }
 
-// 所有指标并行采集 + 每指标 3 秒独立超时，不串行等待、不互相阻塞
+// GPU 实时使用率：PowerShell Win32_PerfFormattedData_GPUAdapter（Windows 专用）
+// 非管理员下也能读，失败时显示 "—"，不影响其他指标
+async function updateGPU() {
+  let usageText = '—';
+  try {
+    const out = await execCmd(
+      'powershell -NoProfile -Command "Get-CimInstance Win32_PerfFormattedData_GPUAdapter_GPUAdapter | Select-Object Name,UtilizationPercentage | ConvertTo-Json"',
+      3000
+    );
+    const data = JSON.parse(out.trim());
+    const list = Array.isArray(data) ? data : [data];
+    let best = 0;
+    for (const item of list) {
+      if (!item) continue;
+      const util = Number(item.UtilizationPercentage);
+      if (!Number.isFinite(util)) continue;
+      if (util > best) best = util; // 多 GPU 时取最高
+    }
+    if (best > 0) usageText = `${Math.round(best)}%`;
+  } catch (e) { /* 拿不到就保持 — */ }
+  const gpuEl = document.getElementById('gpu-compact');
+  if (gpuEl) gpuEl.textContent = usageText;
+}
+
+// 快指标（CPU/内存/网速）并行采集 + 每指标 3 秒独立超时，每秒刷新
 // _updating guard：防止上一轮还没跑完 setInterval 就触发下一轮（WMI 慢时排队导致 dt 趋零）
 let _updating = false;
-async function updateHardware() {
+async function updateFast() {
   if (_updating) return;
   _updating = true;
   try {
     await Promise.all([
       safe(updateCPU, 3000),
       safe(updateMem, 3000),
-      safe(updateDisk, 3000),
-      safe(updateBattery, 3000),
-      safe(updateNet, 3500)
+      safe(updateNet, 3500),
+      safe(updateGPU, 3000)
     ]);
     if (_hwCacheDirty) {
       _hwCacheDirty = false;
@@ -512,6 +625,21 @@ async function updateHardware() {
   }
 }
 
-// 页面加载时立即执行一次，避免空白；之后每秒刷新
-updateHardware();
-setInterval(updateHardware, 1000);
+// 慢指标（磁盘/电池）并行采集，每 10 秒刷新（变化慢，减少 WMI 开销）
+async function updateSlow() {
+  await Promise.all([
+    safe(updateDisk, 3000),
+    safe(updateBattery, 3000)
+  ]);
+  if (_hwCacheDirty) {
+    _hwCacheDirty = false;
+    ipcRenderer.sendSync('set-hw-cache', hwCache);
+  }
+  resizeWindow();
+}
+
+// 页面加载时立即执行一次，避免空白；之后快指标 1s、慢指标 10s
+updateFast();
+updateSlow();
+setInterval(updateFast, 1000);
+setInterval(updateSlow, 10000);

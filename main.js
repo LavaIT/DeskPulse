@@ -43,8 +43,11 @@ function saveHwCache(cache) {
   try { fs.writeFileSync(hwCacheFile, JSON.stringify(cache, null, 2)); } catch (e) {}
 }
 
-const WINDOW_WIDTH = 320;
+const WINDOW_WIDTH = 320;      // 普通模式宽度
+const COMPACT_WIDTH = 220;     // 紧凑模式宽度（同步 renderer.js 中的常量）
 const MARGIN = 20;
+
+let _compact = false;  // 当前是否紧凑模式，供菜单勾选/窗口宽度使用
 
 let win;
 let tray = null;        // 单例托盘
@@ -182,11 +185,13 @@ function createSettingsWindow() {
     resizable: false,
     maximizable: false,
     minimizable: false,
+    autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: false,
       nodeIntegration: true
     }
   });
+  settingsWin.setMenu(null); // 彻底移除默认菜单栏，避免出现 File/Edit/View/Window/Help
   settingsWin.loadFile('settings.html');
   settingsWin.on('closed', () => { settingsWin = null; });
 }
@@ -205,8 +210,23 @@ ipcMain.on('set-ignore-mouse', (event, ignore) => {
 // 渲染进程请求按内容高度自适应调整窗口大小
 ipcMain.on('resize', (event, height) => {
   if (win && !win.isDestroyed() && height > 0) {
-    win.setSize(WINDOW_WIDTH, height);
+    win.setSize(_compact ? COMPACT_WIDTH : WINDOW_WIDTH, height);
   }
+});
+
+// 紧凑模式：切换窗口宽度 + 鼠标穿透策略（紧凑模式整区可拖不穿透，避免穿透到游戏画面）
+ipcMain.on('set-compact', (event, on, widthPx, heightPx) => {
+  _compact = !!on;
+  if (win && !win.isDestroyed()) {
+    const w = (typeof widthPx === 'number' && widthPx > 0) ? widthPx : (_compact ? COMPACT_WIDTH : WINDOW_WIDTH);
+    const h = (typeof heightPx === 'number' && heightPx > 0) ? heightPx : win.getSize()[1];
+    win.setSize(w, h);
+    // 紧凑模式：整个 compact-content 带 drag 标记，关闭整窗穿透，让拖动可靠
+    // 普通模式：恢复默认穿透
+    win.setIgnoreMouseEvents(_compact ? false : true, { forward: true });
+  }
+  // 托盘/右键菜单勾选状态同步
+  rebuildTrayMenu();
 });
 
 // 设置窗口 IPC：查询 / 设置开机自启
@@ -235,6 +255,11 @@ ipcMain.on('set-pref', (e, key, value) => {
   e.returnValue = true;
 });
 
+// 版本号 IPC：get-version() → "1.0.2"
+ipcMain.on('get-version', (e) => {
+  e.returnValue = app.getVersion();
+});
+
 // 硬件缓存 IPC：get-hw-cache() → cacheObj / set-hw-cache(cacheObj) → true
 ipcMain.on('get-hw-cache', (e) => {
   e.returnValue = loadHwCache();
@@ -244,13 +269,25 @@ ipcMain.on('set-hw-cache', (e, cache) => {
   e.returnValue = true;
 });
 
+// 广播主题切换到主窗口和设置窗口
+function broadcastTheme() {
+  if (win && !win.isDestroyed()) win.webContents.send('toggle-theme');
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('toggle-theme');
+}
+
 // 渲染进程请求弹出右键式菜单（切换主题 / 重置位置 / 设置 / 关于 / 退出）
 ipcMain.on('show-context-menu', () => {
   if (!win || win.isDestroyed()) return;
   const menu = Menu.buildFromTemplate([
     {
       label: '切换主题',
-      click: () => { if (win && !win.isDestroyed()) win.webContents.send('toggle-theme'); }
+      click: () => broadcastTheme()
+    },
+    {
+      label: '紧凑模式',
+      type: 'checkbox',
+      checked: _compact,
+      click: () => { if (win && !win.isDestroyed()) win.webContents.send('toggle-compact'); }
     },
     {
       label: '重置到右上角',
@@ -340,7 +377,13 @@ function rebuildTrayMenu() {
     { type: 'separator' },
     {
       label: '切换主题',
-      click: () => { if (win && !win.isDestroyed()) win.webContents.send('toggle-theme'); }
+      click: () => broadcastTheme()
+    },
+    {
+      label: '紧凑模式',
+      type: 'checkbox',
+      checked: _compact,
+      click: () => { if (win && !win.isDestroyed()) win.webContents.send('toggle-compact'); }
     },
     {
       label: '重置到右上角',
@@ -378,6 +421,10 @@ const _origRebuild = rebuildTrayMenu;
 // 这里我们在 app.whenReady().then() 里调用 createTray，所以不用再包。
 
 app.whenReady().then(() => {
+  // 启动前同步紧凑模式偏好，避免菜单勾选与实际状态不一致
+  const savedPrefs = loadPrefs();
+  if (savedPrefs.compact === true) _compact = true;
+
   createWindow();
   createTray();
 });
