@@ -6,7 +6,12 @@
    浅色主题（默认 :root）
    ============================================================ */
 :root {
-  --bg-color: rgba(250, 250, 252, 0.88);   /* 浅色面板：高不透明度，弱玻璃 */
+  /* 面板底色拆成 RGB 通道 + 用户可调透明度（0-1，默认 1 = 完全不透明） */
+  --panel-rgb: 250, 250, 252;
+  --panel-opacity: 1;
+  --bg-color: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.88));   /* 浅色面板：高不透明度，弱玻璃（毛玻璃默认） */
+  --bg-off: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.97));     /* 关闭玻璃：近实 */
+  --bg-liquid: rgba(245, 248, 255, 0.45);  /* 液态玻璃：半透，偏冷调（硬编码，不受滑块影响） */
   --text-color: #1a1d23;                    /* 主文字 */
   --muted-color: #6b7280;                   /* 标签 / 次要文字 */
   --accent-color: #2c6e8a;                  /* 单一克制强调色（仅用于点缀） */
@@ -23,7 +28,10 @@
    深色主题
    ============================================================ */
 [data-theme="dark"] {
-  --bg-color: rgba(18, 20, 24, 0.82);       /* 深色面板：偏实，弱玻璃 */
+  --panel-rgb: 18, 20, 24;
+  --bg-color: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.82));       /* 深色面板：偏实，弱玻璃 */
+  --bg-off: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.95));        /* 关闭玻璃：近实 */
+  --bg-liquid: rgba(20, 22, 30, 0.38);     /* 液态玻璃：半透，偏冷调（硬编码，不受滑块影响） */
   --text-color: #e7e9ec;                    /* 主文字（柔白，非纯白） */
   --muted-color: #7e8590;                   /* 标签灰 */
   --accent-color: #6aa9c9;                   /* 克制青蓝 */
@@ -32,6 +40,45 @@
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   --toggle-bg: rgba(255, 255, 255, 0.05);
   --toggle-bg-hover: rgba(255, 255, 255, 0.12);
+}
+
+/* ============================================================
+   配色预设（html[data-preset="..."] 覆盖 --accent-color）
+   默认预设 preset-qinglan 的值就是 :root 和 [data-theme="dark"] 中的 accent-color
+   ============================================================ */
+/* 青蓝（默认） */
+html[data-preset="qinglan"] { /* 与默认一致，无需覆盖 */ }
+
+/* 海蓝 — 网易邮箱大师同款，沉稳深蓝 */
+html[data-preset="hailan"] {
+  --accent-color: #1e549f;
+}
+html[data-theme="dark"][data-preset="hailan"] {
+  --accent-color: #4a8fd4;
+}
+
+/* 翠绿 — 清新自然 */
+html[data-preset="cuilv"] {
+  --accent-color: #1a7f5a;
+}
+html[data-theme="dark"][data-preset="cuilv"] {
+  --accent-color: #4ec49a;
+}
+
+/* 紫金 — 高级质感 */
+html[data-preset="zijin"] {
+  --accent-color: #7c3a9e;
+}
+html[data-theme="dark"][data-preset="zijin"] {
+  --accent-color: #b78fd4;
+}
+
+/* 极简灰 — 完全中性 */
+html[data-preset="jijian"] {
+  --accent-color: #4a5565;
+}
+html[data-theme="dark"][data-preset="jijian"] {
+  --accent-color: #a8b0bd;
 }
 
 * {
@@ -55,7 +102,7 @@ html, body {
 .widget {
   position: relative;                       /* 主题按钮绝对定位参照 */
   background: var(--bg-color);
-  backdrop-filter: blur(6px);              /* 弱玻璃：6px，避免浮夸 */
+  backdrop-filter: blur(6px);              /* 弱玻璃：6px，避免浮夸（毛玻璃默认） */
   -webkit-backdrop-filter: blur(6px);
   border-radius: var(--border-radius);
   padding: 14px 16px 30px;                  /* 底部留 16px 给主题按钮 */
@@ -63,6 +110,184 @@ html, body {
   flex-direction: column;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow);
+}
+
+/* 玻璃效果模式（data-glass 属性控制） */
+.widget[data-glass="off"] {
+  background: var(--bg-off);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.widget[data-glass="frost"] {
+  background: var(--bg-color);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.widget[data-glass="frost"]::before,
+.widget[data-glass="frost"]::after { display: none; }
+
+/* ============================================================
+   液态玻璃（Apple Liquid Glass, WWDC 2025）
+   — 流动半透明材质，实时折射背景，边缘高光，凝胶质感，3D 跟随
+   ============================================================ */
+
+/* 流动彩色光层：让 backdrop-filter 在纯色壁纸下也有东西可折射 */
+.liquid-blobs {
+  display: none;  /* 默认隐藏，仅液态玻璃模式显示 */
+}
+.widget[data-glass="liquid"] .liquid-blobs {
+  display: block;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(30px);
+  opacity: 0.55;
+  animation: blob-float 18s ease-in-out infinite;
+}
+.blob-1 {
+  width: 200px; height: 200px;
+  background: #ff5f6d;
+  top: -60px; left: -40px;
+}
+.blob-2 {
+  width: 240px; height: 240px;
+  background: #4facfe;
+  bottom: -80px; right: -60px;
+  animation-delay: -6s;
+}
+.blob-3 {
+  width: 160px; height: 160px;
+  background: #f9d423;
+  top: 40%; left: 50%;
+  animation-delay: -12s;
+}
+@keyframes blob-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(50px, -40px) scale(1.2); }
+  66% { transform: translate(-40px, 30px) scale(0.85); }
+}
+/* 深色模式下光斑稍亮 */
+[data-theme="dark"] .blob { opacity: 0.35; }
+
+.widget[data-glass="liquid"] {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(20px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(200%) brightness(1.1);
+  border: 1px solid rgba(255,255,255,0.28);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.75),
+    inset 0 -1px 0 rgba(255,255,255,0.18),
+    inset 1px 0 0 rgba(255,255,255,0.25),
+    inset -1px 0 0 rgba(255,255,255,0.25);
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.4), box-shadow 0.25s;
+  will-change: transform;
+}
+/* 深色模式：加深底色保证白字可读，光斑仍能透出 */
+[data-theme="dark"] .widget[data-glass="liquid"] {
+  background: rgba(15, 16, 22, 0.72);
+  backdrop-filter: blur(20px) saturate(180%) brightness(0.95);
+  -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(0.95);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.40),
+    inset 0 1px 0 rgba(255,255,255,0.40),
+    inset 0 -1px 0 rgba(255,255,255,0.08),
+    inset 1px 0 0 rgba(255,255,255,0.12),
+    inset -1px 0 0 rgba(255,255,255,0.12);
+}
+
+/* 鼠标跟随的动态高光（hover 时显现） */
+.widget[data-glass="liquid"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    400px circle at var(--mx, 50%) var(--my, 0%),
+    rgba(255,255,255,0.45),
+    rgba(255,255,255,0.08) 35%,
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  z-index: 0;
+}
+.widget[data-glass="liquid"]:hover::before { opacity: 1; }
+
+/* 顶部细亮边：玻璃反光 */
+.widget[data-glass="liquid"]::after {
+  content: '';
+  position: absolute;
+  left: 10%; right: 10%; top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="dark"] .widget[data-glass="liquid"]::after {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+}
+
+/* 内容层提升 z-index */
+.widget[data-glass="liquid"] > .normal-content,
+.widget[data-glass="liquid"] > .compact-content {
+  position: relative;
+  z-index: 2;
+}
+/* 分隔线更柔和 */
+.widget[data-glass="liquid"] .row-top,
+.widget[data-glass="liquid"] .row-power,
+.widget[data-glass="liquid"] .row-split + .row-split,
+.widget[data-glass="liquid"] .row-block,
+.widget[data-glass="liquid"] .row-net {
+  border-color: rgba(255,255,255,0.05);
+}
+[data-theme="dark"] .widget[data-glass="liquid"] .row-top,
+[data-theme="dark"] .widget[data-glass="liquid"] .row-power,
+[data-theme="dark"] .widget[data-glass="liquid"] .row-split + .row-split,
+[data-theme="dark"] .widget[data-glass="liquid"] .row-block,
+[data-theme="dark"] .widget[data-glass="liquid"] .row-net {
+  border-color: rgba(255,255,255,0.03);
+}
+
+/* 液态玻璃按钮：凝胶回弹 */
+.widget[data-glass="liquid"] .theme-toggle,
+.widget[data-glass="liquid"] .menu-btn {
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.20);
+  box-shadow:
+    0 2px 8px rgba(0,0,0,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.30);
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.4),
+              background 0.2s, opacity 0.2s, box-shadow 0.2s;
+}
+.widget[data-glass="liquid"] .theme-toggle:hover,
+.widget[data-glass="liquid"] .menu-btn:hover {
+  transform: scale(1.15);
+  background: rgba(255,255,255,0.18);
+  box-shadow:
+    0 4px 16px rgba(0,0,0,0.15),
+    inset 0 1px 0 rgba(255,255,255,0.45);
+}
+.widget[data-glass="liquid"] .theme-toggle:active,
+.widget[data-glass="liquid"] .menu-btn:active {
+  transform: scale(0.90);
+}
+[data-theme="dark"] .widget[data-glass="liquid"] .theme-toggle,
+[data-theme="dark"] .widget[data-glass="liquid"] .menu-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
 }
 
 /* ============================================================
@@ -90,6 +315,26 @@ html, body {
   font-weight: 500;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
+}
+
+.datetime-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.uptime {
+  color: var(--muted-color);
+  font-size: 10px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.wifi {
+  color: var(--muted-color);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  margin-right: 6px;
 }
 
 .osname {
@@ -151,6 +396,38 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+/* 阈值告警：CPU/MEM/GPU 超过阈值（默认 80%）时数值变红 */
+.value.alert,
+.compact-value.alert {
+  color: #e25c5c !important;
+  font-weight: 600;
+}
+
+/* 双击行快速隐藏的 toast 提示 */
+.dp-toast {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(20, 22, 28, 0.92);
+  color: #e7e9ec;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-family: var(--font-family);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 9999;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.dp-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* 子文本：CPU 型号等辅助信息，小号 muted，省略号截断 */
@@ -160,6 +437,41 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 迷你趋势图（Sparkline）：纯 Canvas 小折线图 */
+.sparkline {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 4px;
+  flex: 0 0 auto;
+  opacity: 0.85;
+}
+.sparkline.spark-net {
+  margin-left: 8px;
+}
+
+/* CPU 每核负载条：一排小横条 */
+.cpu-cores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  margin-top: 2px;
+  max-width: 140px;
+}
+.core-bar {
+  height: 3px;
+  min-width: 8px;
+  flex: 1 1 8px;
+  background: rgba(128, 128, 128, 0.2);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.core-bar-fill {
+  height: 100%;
+  background: var(--accent-color);
+  transition: width 0.3s ease;
+  border-radius: 1px;
 }
 
 /* 电源值继承主色，状态文字用 muted 收敛（不再用黄/绿彩虹色） */
@@ -305,8 +617,6 @@ html, body {
 .widget[data-compact="true"] {
   padding: 6px 10px;
   border-radius: 10px;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 .compact-content { display: none; }
 .compact-row {

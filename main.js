@@ -3,9 +3,10 @@
 //       处理 IPC（鼠标穿透切换、高度自适应、右键式菜单、退出）；
 //       记忆窗口上次位置。
 
-const { app, BrowserWindow, ipcMain, screen, Menu, Tray, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Menu, Tray, nativeImage, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { exec, spawn, execSync } = require('child_process');  // 用于启动任务管理器 / 资源监视器 / 列系统字体
 
 // 将 Electron 的用户数据目录重定向到项目本地 userData 文件夹。
 // 这样可避免写入系统 AppData（部分沙箱环境会拦截该路径导致进程崩溃）。
@@ -68,6 +69,34 @@ function resetPosition() {
   const p = topRightPos();
   win.setPosition(p.x, p.y);
   saveState(p);
+}
+
+// 把窗口移动到指定角落（corner: 'tl' | 'tr' | 'bl' | 'br'）
+function moveToCorner(corner) {
+  if (!win || win.isDestroyed()) return;
+  const workArea = screen.getPrimaryDisplay().workArea;
+  const [w, h] = win.getSize();
+  let x, y;
+  switch (corner) {
+    case 'tl': x = workArea.x + MARGIN;            y = workArea.y + MARGIN;            break;
+    case 'tr': x = workArea.x + workArea.width - w - MARGIN;  y = workArea.y + MARGIN;            break;
+    case 'bl': x = workArea.x + MARGIN;            y = workArea.y + workArea.height - h - MARGIN; break;
+    case 'br': x = workArea.x + workArea.width - w - MARGIN;  y = workArea.y + workArea.height - h - MARGIN; break;
+    default: return;
+  }
+  win.setPosition(x, y);
+  saveState({ x, y });
+}
+
+// 启动 Windows 系统工具（任务管理器 / 资源监视器）
+function launchSysTool(tool) {
+  try {
+    if (tool === 'taskmgr') {
+      spawn('taskmgr.exe', [], { detached: true, stdio: 'ignore' }).unref();
+    } else if (tool === 'resmon') {
+      spawn('resmon.exe', [], { detached: true, stdio: 'ignore' }).unref();
+    }
+  } catch (e) { /* 静默失败，无权限时无法启动 */ }
 }
 
 function createWindow() {
@@ -154,17 +183,31 @@ function createWindow() {
 }
 
 // ============================================================
-// 关于对话框
+// 关于页（自定义窗口，液态玻璃）
 // ============================================================
+let aboutWin = null;
 function showAbout() {
-  dialog.showMessageBox({
-    type: 'info',
+  if (aboutWin && !aboutWin.isDestroyed()) {
+    aboutWin.show();
+    aboutWin.focus();
+    return;
+  }
+  aboutWin = new BrowserWindow({
+    width: 320,
+    height: 280,
     title: '关于 DeskPulse',
-    message: `DeskPulse v${app.getVersion()}`,
-    detail: '桌面系统监控小组件\n\nCopyright © Lava (MIT License)\nhttps://github.com/LavaIT/DeskPulse',
-    buttons: ['确定'],
-    icon: path.join(__dirname, 'assets', 'icon.ico')
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    autoHideMenuBar: true,
+    webPreferences: {
+      contextIsolation: false,
+      nodeIntegration: true
+    }
   });
+  aboutWin.setMenu(null);
+  aboutWin.loadFile('about.html');
+  aboutWin.on('closed', () => { aboutWin = null; });
 }
 
 // ============================================================
@@ -179,8 +222,8 @@ function createSettingsWindow() {
     return;
   }
   settingsWin = new BrowserWindow({
-    width: 360,
-    height: 220,
+    width: 380,
+    height: 540,
     title: 'DeskPulse 设置',
     resizable: false,
     maximizable: false,
@@ -215,12 +258,12 @@ ipcMain.on('resize', (event, height) => {
 });
 
 // 紧凑模式：切换窗口宽度 + 鼠标穿透策略（紧凑模式整区可拖不穿透，避免穿透到游戏画面）
-ipcMain.on('set-compact', (event, on, widthPx, heightPx) => {
+ipcMain.on('set-compact', (event, on, widthPx) => {
   _compact = !!on;
   if (win && !win.isDestroyed()) {
     const w = (typeof widthPx === 'number' && widthPx > 0) ? widthPx : (_compact ? COMPACT_WIDTH : WINDOW_WIDTH);
-    const h = (typeof heightPx === 'number' && heightPx > 0) ? heightPx : win.getSize()[1];
-    win.setSize(w, h);
+    // 高度由渲染进程的 resize IPC 单独处理
+    win.setSize(w, win.getSize()[1]);
     // 紧凑模式：整个 compact-content 带 drag 标记，关闭整窗穿透，让拖动可靠
     // 普通模式：恢复默认穿透
     win.setIgnoreMouseEvents(_compact ? false : true, { forward: true });
@@ -255,6 +298,192 @@ ipcMain.on('set-pref', (e, key, value) => {
   e.returnValue = true;
 });
 
+// 设置窗口请求设置主题（null=跟随系统 / 'dark' / 'light'）
+ipcMain.on('set-theme', (_e, theme) => {
+  const prefs = loadPrefs();
+  if (theme === null || theme === undefined) {
+    delete prefs.theme;
+  } else {
+    prefs.theme = theme;
+  }
+  savePrefs(prefs);
+  broadcastSetTheme(theme === undefined ? null : theme);
+});
+
+// 设置窗口请求切换紧凑模式（转发给主窗口渲染进程）
+ipcMain.on('request-set-compact', (_e, on) => {
+  if (win && !win.isDestroyed()) win.webContents.send('set-compact-state', on);
+});
+
+// 设置窗口请求设置玻璃效果（off / frost / liquid）
+ipcMain.on('set-glass', (_e, val) => {
+  const prefs = loadPrefs();
+  prefs.glass = val;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-glass', val);
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('apply-glass', val);
+});
+
+// 设置窗口请求设置配色预设（qinglan / hailan / cuilv / zijin / jijian）
+ipcMain.on('set-preset', (_e, val) => {
+  const prefs = loadPrefs();
+  prefs.preset = val;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-preset', val);
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('apply-preset', val);
+});
+
+// 设置窗口请求设置字体（'default' = 恢复默认字体栈，否则直接作为 font-family 值）
+ipcMain.on('set-font-family', (_e, val) => {
+  const prefs = loadPrefs();
+  if (!val || val === 'default') delete prefs.fontFamily;
+  else prefs.fontFamily = val;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-font-family', val);
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('apply-font-family', val);
+});
+
+// 设置窗口请求设置面板透明度（0-1，仅 off/frost 模式生效）
+ipcMain.on('set-panel-opacity', (_e, val) => {
+  const prefs = loadPrefs();
+  prefs.panelOpacity = val;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-panel-opacity', val);
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('apply-panel-opacity', val);
+});
+
+// 设置窗口请求设置自定义主题色（'#xxxxxx' / null=恢复预设）
+ipcMain.on('set-custom-accent', (_e, val) => {
+  const prefs = loadPrefs();
+  if (!val) delete prefs.customAccent;
+  else prefs.customAccent = val;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-custom-accent', val);
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('apply-custom-accent', val);
+});
+
+// 设置窗口请求设置时钟样式（hour/seconds/dateformat）
+ipcMain.on('set-clock-hour', (_e, val) => {
+  const prefs = loadPrefs();
+  prefs.clockHour = val;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-clock-hour', val);
+});
+ipcMain.on('set-clock-seconds', (_e, on) => {
+  const prefs = loadPrefs();
+  prefs.clockSeconds = !!on;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-clock-seconds', !!on);
+});
+ipcMain.on('set-date-format', (_e, val) => {
+  const prefs = loadPrefs();
+  prefs.dateFormat = val;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-date-format', val);
+});
+
+// 设置窗口请求设置阈值告警百分比（0-100）
+ipcMain.on('set-alert-threshold', (_e, val) => {
+  const prefs = loadPrefs();
+  prefs.alertThreshold = val;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-alert-threshold', val);
+});
+
+// 设置窗口请求「恢复默认」：清空所有偏好，但保留窗口位置记忆和硬件缓存
+ipcMain.on('reset-all-prefs', (e) => {
+  // 清空偏好文件（等价于 delete 整个 prefs 对象）
+  try { fs.writeFileSync(prefsFile, '{}'); } catch (err) { /* 忽略写入失败 */ }
+  // 同步重置主进程持有的紧凑模式标志，避免与重载后的 renderer 不一致
+  _compact = false;
+  if (win && !win.isDestroyed()) {
+    // 重载前先恢复普通模式宽度，重载后 renderer 会通过 resize IPC 重新调整高度
+    win.setSize(WINDOW_WIDTH, win.getSize()[1]);
+    win.setIgnoreMouseEvents(true, { forward: true });
+    win.webContents.reload();
+  }
+  // 托盘菜单勾选状态同步
+  rebuildTrayMenu();
+  e.returnValue = true;
+});
+
+// 设置窗口请求设置显示方式（percent / value）
+ipcMain.on('set-display-mode', (_e, val) => {
+  const prefs = loadPrefs();
+  prefs.displayMode = val;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-display-mode', val);
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('apply-display-mode', val);
+});
+
+// 设置窗口请求开关「系统运行时间」显示
+ipcMain.on('set-show-uptime', (_e, on) => {
+  const prefs = loadPrefs();
+  prefs.showUptime = !!on;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-show-uptime', !!on);
+});
+
+// 设置窗口请求开关「WiFi 信号强度」显示
+ipcMain.on('set-show-wifi', (_e, on) => {
+  const prefs = loadPrefs();
+  prefs.showWifi = !!on;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-show-wifi', !!on);
+});
+
+// 设置窗口请求开关「迷你趋势图」显示
+ipcMain.on('set-sparkline', (_e, on) => {
+  const prefs = loadPrefs();
+  prefs.sparkline = !!on;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-sparkline', !!on);
+});
+
+// 设置窗口请求开关「CPU 每核负载条」显示
+ipcMain.on('set-show-cpucores', (_e, on) => {
+  const prefs = loadPrefs();
+  prefs.showCpuCores = !!on;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-show-cpucores', !!on);
+});
+
+// 设置窗口请求开关「磁盘读写速度」显示
+ipcMain.on('set-show-diskio', (_e, on) => {
+  const prefs = loadPrefs();
+  prefs.showDiskIO = !!on;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-show-diskio', !!on);
+});
+
+// 设置窗口请求开关「GPU 显存占用」显示
+ipcMain.on('set-show-gpuram', (_e, on) => {
+  const prefs = loadPrefs();
+  prefs.showGpuRam = !!on;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-show-gpuram', !!on);
+});
+
+// 设置窗口请求开关「内存规格」显示
+ipcMain.on('set-show-memspec', (_e, on) => {
+  const prefs = loadPrefs();
+  prefs.showMemSpec = !!on;
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-show-memspec', !!on);
+});
+
+// 设置窗口请求隐藏/显示某指标（metricId, hidden=true=隐藏）
+ipcMain.on('set-visibility', (_e, metricId, hidden) => {
+  const prefs = loadPrefs();
+  if (!hidden) {
+    delete prefs['hidden.' + metricId];
+  } else {
+    prefs['hidden.' + metricId] = true;
+  }
+  savePrefs(prefs);
+  if (win && !win.isDestroyed()) win.webContents.send('apply-visibility', metricId, !!hidden);
+});
+
 // 版本号 IPC：get-version() → "1.0.2"
 ipcMain.on('get-version', (e) => {
   e.returnValue = app.getVersion();
@@ -269,20 +498,68 @@ ipcMain.on('set-hw-cache', (e, cache) => {
   e.returnValue = true;
 });
 
-// 广播主题切换到主窗口和设置窗口
+// 枚举系统字体的 PowerShell 脚本（base64 编码后用 -EncodedCommand 执行，避免 shell 转义 $_）
+// 取中文名（GetName(2052)），为空则回退英文名，输出 JSON 数组
+const _FONT_PS_SCRIPT = `
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Add-Type -AssemblyName System.Drawing
+$f = (New-Object System.Drawing.Text.InstalledFontCollection).Families
+$result = $f | ForEach-Object {
+  $cn = $_.GetName(2052)
+  if ([string]::IsNullOrWhiteSpace($cn)) { $cn = $_.Name }
+  $cn
+}
+$result | ConvertTo-Json -Compress
+`;
+const _FONT_PS_B64 = Buffer.from(_FONT_PS_SCRIPT, 'utf16le').toString('base64');
+
+function _fetchSystemFonts() {
+  try {
+    const out = execSync(
+      `powershell -NoProfile -EncodedCommand ${_FONT_PS_B64}`,
+      { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024 }
+    );
+    const parsed = JSON.parse(out);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+// 获取系统已安装字体列表（显示名，优先中文名），缓存到 hw-cache.json
+// 字体列表不会频繁变动，首次查询后缓存，后续直接返回缓存
+ipcMain.on('get-system-fonts', (e) => {
+  const cache = loadHwCache();
+  if (Array.isArray(cache.systemFonts) && cache.systemFonts.length > 0) {
+    e.returnValue = cache.systemFonts;
+    return;
+  }
+  const fonts = _fetchSystemFonts();
+  if (fonts.length > 0) {
+    cache.systemFonts = fonts;
+    saveHwCache(cache);
+  }
+  e.returnValue = fonts;
+});
+
+// 广播主题切换到所有窗口（切换模式：dark↔light）
 function broadcastTheme() {
   if (win && !win.isDestroyed()) win.webContents.send('toggle-theme');
   if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('toggle-theme');
+  if (aboutWin && !aboutWin.isDestroyed()) aboutWin.webContents.send('toggle-theme');
 }
 
-// 渲染进程请求弹出右键式菜单（切换主题 / 重置位置 / 设置 / 关于 / 退出）
+// 广播指定主题到所有窗口（设置窗口用：跟随系统/浅色/深色）
+function broadcastSetTheme(theme) {
+  if (win && !win.isDestroyed()) win.webContents.send('apply-theme', theme);
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('apply-theme', theme);
+  if (aboutWin && !aboutWin.isDestroyed()) aboutWin.webContents.send('apply-theme', theme);
+}
+
+// 渲染进程请求弹出右键式菜单（紧凑模式 / 移动到四角 / 设置 / 关于 / 退出）
 ipcMain.on('show-context-menu', () => {
   if (!win || win.isDestroyed()) return;
   const menu = Menu.buildFromTemplate([
-    {
-      label: '切换主题',
-      click: () => broadcastTheme()
-    },
     {
       label: '紧凑模式',
       type: 'checkbox',
@@ -290,8 +567,26 @@ ipcMain.on('show-context-menu', () => {
       click: () => { if (win && !win.isDestroyed()) win.webContents.send('toggle-compact'); }
     },
     {
+      label: '移动到',
+      submenu: [
+        { label: '左上角', click: () => moveToCorner('tl') },
+        { label: '右上角', click: () => moveToCorner('tr') },
+        { label: '左下角', click: () => moveToCorner('bl') },
+        { label: '右下角', click: () => moveToCorner('br') }
+      ]
+    },
+    {
       label: '重置到右上角',
       click: () => resetPosition()
+    },
+    { type: 'separator' },
+    {
+      label: '任务管理器',
+      click: () => launchSysTool('taskmgr')
+    },
+    {
+      label: '资源监视器',
+      click: () => launchSysTool('resmon')
     },
     { type: 'separator' },
     {
@@ -308,7 +603,7 @@ ipcMain.on('show-context-menu', () => {
       click: () => app.quit()
     }
   ]);
-  menu.popup(); // 在光标位置弹出
+  menu.popup();
 });
 
 // ============================================================
@@ -333,14 +628,6 @@ function resolveTrayIcon() {
 
   // tray.png / icon.ico(≥256) 都会缩到 32 再下采样 16，过一次 best 质量抗锯齿
   const scaled = img.resize({ width: 32, height: 32, quality: 'best' });
-  // 若图像原本有透明通道就直接用；否则也不做白底抠（图案和背景都是白的情况下抠不干净）
-  // 你给的 tray.png 若真是透明 PNG，hasTransparency=true → 直接生效
-  const bitmap = scaled.getBitmap();
-  let hasTransparency = false;
-  for (let i = 3; i < bitmap.length; i += 4) {
-    if (bitmap[i] < 255) { hasTransparency = true; break; }
-  }
-  void hasTransparency; // 保留检测逻辑占位，暂不分流
   return scaled.resize({ width: 16, height: 16, quality: 'best' });
 }
 
@@ -376,14 +663,19 @@ function rebuildTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: '切换主题',
-      click: () => broadcastTheme()
-    },
-    {
       label: '紧凑模式',
       type: 'checkbox',
       checked: _compact,
       click: () => { if (win && !win.isDestroyed()) win.webContents.send('toggle-compact'); }
+    },
+    {
+      label: '移动到',
+      submenu: [
+        { label: '左上角', click: () => moveToCorner('tl') },
+        { label: '右上角', click: () => moveToCorner('tr') },
+        { label: '左下角', click: () => moveToCorner('bl') },
+        { label: '右下角', click: () => moveToCorner('br') }
+      ]
     },
     {
       label: '重置到右上角',
@@ -392,6 +684,15 @@ function rebuildTrayMenu() {
         resetPosition();
         if (win && !win.isVisible()) { win.show(); win.moveTop(); }
       }
+    },
+    { type: 'separator' },
+    {
+      label: '任务管理器',
+      click: () => launchSysTool('taskmgr')
+    },
+    {
+      label: '资源监视器',
+      click: () => launchSysTool('resmon')
     },
     { type: 'separator' },
     {
@@ -416,9 +717,6 @@ function rebuildTrayMenu() {
 }
 
 // 保证每次窗口显隐状态或自启状态变化后，菜单文字能同步更新
-const _origRebuild = rebuildTrayMenu;
-// 包装 rebuildTrayMenu 到 app.whenReady 之后才能执行（因为 app.getLoginItemSettings 在 ready 前不可用）
-// 这里我们在 app.whenReady().then() 里调用 createTray，所以不用再包。
 
 app.whenReady().then(() => {
   // 启动前同步紧凑模式偏好，避免菜单勾选与实际状态不一致
@@ -427,11 +725,28 @@ app.whenReady().then(() => {
 
   createWindow();
   createTray();
+
+  // 全局快捷键：Ctrl+Alt+M 切换紧凑模式 / 标准模式
+  globalShortcut.register('Control+Alt+M', () => {
+    if (win && !win.isDestroyed()) win.webContents.send('toggle-compact');
+  });
+
+  // 后台预热系统字体列表（首次跑 PowerShell 约 1-2 秒，后台跑不阻塞主窗口）
+  // 缓存到 hw-cache.json 后，设置窗口打开时直接秒回
+  setTimeout(() => {
+    const cache = loadHwCache();
+    if (Array.isArray(cache.systemFonts) && cache.systemFonts.length > 0) return;
+    const fonts = _fetchSystemFonts();
+    if (fonts.length > 0) {
+      cache.systemFonts = fonts;
+      saveHwCache(cache);
+    }
+  }, 2000);
 });
 
 // 托盘状态同步：窗口显示/隐藏时刷新菜单文字
-app.on('browser-window-show', () => _origRebuild && rebuildTrayMenu());
-app.on('browser-window-hide', () => _origRebuild && rebuildTrayMenu());
+app.on('browser-window-show', (e) => { if (e === win) rebuildTrayMenu(); });
+app.on('browser-window-hide', (e) => { if (e === win) rebuildTrayMenu(); });
 
 // macOS 下点击 dock 图标时若没有窗口则重新创建
 app.on('activate', () => {
@@ -444,4 +759,9 @@ app.on('activate', () => {
 // 只有托盘"退出"把 _quitting=true 后才会真关闭窗口 → 此时 app.quit() 已调用，不再需要该回调。
 app.on('window-all-closed', () => {
   // 托盘在，不退出；真退出走托盘"退出"菜单
+});
+
+// 退出前注销全局快捷键，避免残留
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });

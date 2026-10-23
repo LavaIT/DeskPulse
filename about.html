@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>关于 DeskPulse</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --text: #1a1d23;
+      --muted: #6b7280;
+      --border: rgba(0, 0, 0, 0.10);
+      --accent: #2c6e8a;
+    }
+    [data-theme="dark"] {
+      --bg: #15161c;
+      --text: #e7e9ec;
+      --muted: #a0a7b4;
+      --border: rgba(255, 255, 255, 0.10);
+      --accent: #6aa9c9;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'SF Mono', 'JetBrains Mono', 'Cascadia Code', 'Menlo', 'Consolas', 'Microsoft YaHei', monospace;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .logo {
+      width: 72px; height: 72px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .logo img { width: 100%; height: 100%; object-fit: contain; }
+    .name {
+      font-size: 18px; font-weight: 600; letter-spacing: 0.02em;
+    }
+    .version {
+      font-size: 12px; color: var(--muted); margin-top: 2px;
+    }
+    .desc {
+      font-size: 12px; color: var(--muted); margin-top: 14px; line-height: 1.6;
+    }
+    .links {
+      margin-top: 20px;
+      display: flex; gap: 18px;
+    }
+    .links a {
+      font-size: 12px; color: var(--accent); text-decoration: none; cursor: pointer;
+    }
+    .links a:hover { text-decoration: underline; }
+    .copyright {
+      margin-top: 22px;
+      font-size: 11px; color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="logo"><img src="assets/tray.png" alt="DeskPulse"></div>
+  <div class="name">DeskPulse</div>
+  <div class="version">v<span id="ver">--</span></div>
+  <div class="desc">桌面系统监控小组件<br>透明 · 无边框 · 始终置顶</div>
+  <div class="links">
+    <a id="gh">GitHub</a>
+    <a id="license">MIT License</a>
+  </div>
+  <div class="copyright">Copyright © LavaIT</div>
+
+  <script>
+    const { ipcRenderer, shell } = require('electron');
+    document.getElementById('ver').textContent = ipcRenderer.sendSync('get-version');
+
+    // 主题同步
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    function resolveAboutTheme(pref) {
+      if (pref === 'dark' || pref === 'light') return pref;
+      return mql.matches ? 'dark' : 'light';
+    }
+    const storedTheme = ipcRenderer.sendSync('get-pref', 'theme');
+    document.documentElement.setAttribute('data-theme', resolveAboutTheme(storedTheme));
+
+    // 监听主题切换广播
+    ipcRenderer.on('apply-theme', (_e, theme) => {
+      document.documentElement.setAttribute('data-theme', resolveAboutTheme(theme));
+    });
+    ipcRenderer.on('toggle-theme', () => {
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+    });
+
+    document.getElementById('gh').onclick = () => shell.openExternal('https://github.com/LavaIT/DeskPulse');
+    document.getElementById('license').onclick = () => shell.openExternal('https://github.com/LavaIT/DeskPulse/blob/main/LICENSE');
+  </script>
+</body>
+</html>

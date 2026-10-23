@@ -5,28 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DeskPulse 设置</title>
   <style>
-    /* 极简专业风，与主组件保持一致的色彩语言 */
+    /* 极简专业风（实色背景，零 GPU 开销） */
     :root {
-      --bg: #fafafc;
+      --bg: #f5f6f8;
       --text: #1a1d23;
       --muted: #6b7280;
-      --border: rgba(0, 0, 0, 0.09);
+      --border: rgba(0, 0, 0, 0.10);
       --accent: #2c6e8a;
     }
     [data-theme="dark"] {
-      --bg: #18141c;
+      --bg: #15161c;
       --text: #e7e9ec;
-      --muted: #7e8590;
-      --border: rgba(255, 255, 255, 0.09);
+      --muted: #a0a7b4;
+      --border: rgba(255, 255, 255, 0.10);
       --accent: #6aa9c9;
     }
+    /* 配色预设（覆盖 --accent） */
+    html[data-preset="qinglan"] { --accent: #2c6e8a; }
+    html[data-theme="dark"][data-preset="qinglan"] { --accent: #6aa9c9; }
+    html[data-preset="hailan"] { --accent: #1e549f; }
+    html[data-theme="dark"][data-preset="hailan"] { --accent: #4a8fd4; }
+    html[data-preset="cuilv"] { --accent: #1a7f5a; }
+    html[data-theme="dark"][data-preset="cuilv"] { --accent: #4ec49a; }
+    html[data-preset="zijin"] { --accent: #7c3a9e; }
+    html[data-theme="dark"][data-preset="zijin"] { --accent: #b78fd4; }
+    html[data-preset="jijian"] { --accent: #4a5565; }
+    html[data-theme="dark"][data-preset="jijian"] { --accent: #a8b0bd; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       background: var(--bg);
       color: var(--text);
       font-family: 'SF Mono', 'JetBrains Mono', 'Cascadia Code', 'Menlo', 'Consolas', 'Microsoft YaHei', monospace;
       height: 100vh;
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
     }
     body {
@@ -40,13 +52,28 @@
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
+
+    /* 板块 */
+    .section { margin-bottom: 20px; }
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* 设置项 */
     .setting-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 0;
+      padding: 12px 0;
       border-bottom: 1px solid var(--border);
     }
     .setting-item:last-of-type { border-bottom: none; }
@@ -60,6 +87,7 @@
       color: var(--muted);
       margin-top: 3px;
     }
+
     /* 开关组件 */
     .switch {
       position: relative;
@@ -94,6 +122,55 @@
     .switch input:checked + .slider::before {
       transform: translateX(18px);
     }
+
+    /* 分段选择器（主题选择用） */
+    .seg-group {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .seg-group label {
+      display: flex;
+      align-items: center;
+      padding: 5px 10px;
+      font-size: 11.5px;
+      cursor: pointer;
+      border-right: 1px solid var(--border);
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      color: var(--muted);
+    }
+    .seg-group label:last-child { border-right: none; }
+    .seg-group input { display: none; }
+    .seg-group label:has(input:checked) {
+      background: var(--accent);
+      color: #fff;
+    }
+    /* 配色预设：更紧凑 + 色块圆点 */
+    .preset-group {
+      flex-wrap: wrap;
+      max-width: 220px;
+      gap: 2px;
+    }
+    .preset-group label {
+      padding: 4px 7px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }
+    [data-theme="dark"] .swatch { box-shadow: 0 0 0 1px rgba(255,255,255,0.20); }
+
     .footer {
       margin-top: auto;
       padding-top: 16px;
@@ -112,53 +189,747 @@
 <body>
   <h1>设置</h1>
 
-  <div class="setting-item">
-    <div>
-      <div class="setting-label">开机自启</div>
-      <div class="setting-hint">登录时自动启动 DeskPulse</div>
+  <!-- 通用设置 -->
+  <div class="section">
+    <div class="section-title">通用</div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">开机自启</div>
+        <div class="setting-hint">登录时自动启动 DeskPulse</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="autolaunch">
+        <span class="slider"></span>
+      </label>
     </div>
-    <label class="switch">
-      <input type="checkbox" id="autolaunch">
-      <span class="slider"></span>
-    </label>
+  </div>
+
+  <!-- 个性化 -->
+  <div class="section">
+    <div class="section-title">个性化</div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">主题</div>
+        <div class="setting-hint">选择界面配色方案</div>
+      </div>
+      <div class="seg-group" id="theme-group">
+        <label><input type="radio" name="theme" value="auto"><span>跟随系统</span></label>
+        <label><input type="radio" name="theme" value="light"><span>浅色</span></label>
+        <label><input type="radio" name="theme" value="dark"><span>深色</span></label>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">配色预设</div>
+        <div class="setting-hint">强调色与系统名称的显示颜色</div>
+      </div>
+      <div class="seg-group preset-group" id="preset-group">
+        <label><input type="radio" name="preset" value="qinglan"><span class="swatch" style="background:#2c6e8a"></span>青蓝</label>
+        <label><input type="radio" name="preset" value="hailan"><span class="swatch" style="background:#1e549f"></span>海蓝</label>
+        <label><input type="radio" name="preset" value="cuilv"><span class="swatch" style="background:#1a7f5a"></span>翠绿</label>
+        <label><input type="radio" name="preset" value="zijin"><span class="swatch" style="background:#7c3a9e"></span>紫金</label>
+        <label><input type="radio" name="preset" value="jijian"><span class="swatch" style="background:#4a5565"></span>极简灰</label>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">自定义主题色</div>
+        <div class="setting-hint">覆盖预设强调色（点击色块选色，重置按钮恢复）</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="color" id="custom-accent-input" value="#2c6e8a" style="width:32px; height:24px; border:none; cursor:pointer; background:transparent; padding:0;">
+        <button id="custom-accent-reset" type="button" style="font-size:11px; padding:4px 8px; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:4px; cursor:pointer;">重置</button>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">时钟样式</div>
+        <div class="setting-hint">12 / 24 小时制切换</div>
+      </div>
+      <div class="seg-group" id="clock-hour-group">
+        <label><input type="radio" name="clockHour" value="24"><span>24h</span></label>
+        <label><input type="radio" name="clockHour" value="12"><span>12h</span></label>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">显示秒</div>
+        <div class="setting-hint">时间精确到秒</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="clock-seconds">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">日期格式</div>
+        <div class="setting-hint">日期部分排版样式</div>
+      </div>
+      <div class="seg-group" id="date-format-group">
+        <label><input type="radio" name="dateFormat" value="zh"><span>中文</span></label>
+        <label><input type="radio" name="dateFormat" value="iso"><span>ISO</span></label>
+        <label><input type="radio" name="dateFormat" value="us"><span>US</span></label>
+        <label><input type="radio" name="dateFormat" value="dash"><span>点分</span></label>
+      </div>
+    </div>
+    <div class="setting-item" style="flex-direction:column; align-items:stretch; gap:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div class="setting-label">阈值告警</div>
+          <div class="setting-hint">CPU / 内存 / GPU 超过该值时变红</div>
+        </div>
+        <span id="alert-threshold-value" style="font-size:12px; color:var(--accent); font-variant-numeric:tabular-nums;">80%</span>
+      </div>
+      <input type="range" id="alert-threshold-slider" min="0" max="100" value="80" step="5" style="width:100%; accent-color:var(--accent);">
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">玻璃效果</div>
+        <div class="setting-hint">面板背景透明度与模糊风格</div>
+      </div>
+      <div class="seg-group" id="glass-group">
+        <label><input type="radio" name="glass" value="off"><span>关闭</span></label>
+        <label><input type="radio" name="glass" value="frost"><span>毛玻璃</span></label>
+        <label><input type="radio" name="glass" value="liquid"><span>液态玻璃</span></label>
+      </div>
+    </div>
+    <div class="setting-item" id="panel-opacity-item" style="flex-direction:column; align-items:stretch; gap:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div class="setting-label">面板透明度</div>
+          <div class="setting-hint" id="panel-opacity-hint">仅关闭 / 毛玻璃模式下生效</div>
+        </div>
+        <span id="panel-opacity-value" style="font-size:12px; color:var(--accent); font-variant-numeric:tabular-nums;">100%</span>
+      </div>
+      <input type="range" id="panel-opacity-slider" min="0" max="100" value="100" step="1" style="width:100%; accent-color:var(--accent);">
+    </div>
+    <div class="setting-item" style="flex-direction:column; align-items:stretch; gap:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div class="setting-label">字体</div>
+          <div class="setting-hint">选择界面字体（含中文/等宽）</div>
+        </div>
+      </div>
+      <select id="font-family-select" style="font-size:12px; padding:6px 8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; cursor:pointer;">
+        <option value="default">默认（等宽字体栈）</option>
+        <option value="custom">自定义…</option>
+      </select>
+      <input type="text" id="font-family-custom" placeholder="输入字体名，如 'JetBrains Mono', monospace" style="display:none; font-size:12px; padding:6px 8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px;">
+      <div id="font-preview" style="font-size:13px; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text);">
+        Aa 123 你好 DeskPulse · 01:23:45
+      </div>
+    </div>
+    <div class="setting-item" id="display-mode-item">
+      <div>
+        <div class="setting-label">显示方式</div>
+        <div class="setting-hint" id="display-mode-hint">内存与磁盘显示百分比或具体数值</div>
+      </div>
+      <div class="seg-group" id="display-mode-group">
+        <label><input type="radio" name="displayMode" value="percent"><span>百分比</span></label>
+        <label><input type="radio" name="displayMode" value="value"><span>数值</span></label>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">系统运行时间</div>
+        <div class="setting-hint">在日期下方显示已运行时长</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="show-uptime">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">WiFi 信号强度</div>
+        <div class="setting-hint">在网速行显示当前 WiFi 信号百分比</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="show-wifi">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">迷你趋势图</div>
+        <div class="setting-hint">CPU/内存/网速旁显示 60 秒折线趋势</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="show-sparkline">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">CPU 每核负载条</div>
+        <div class="setting-hint">CPU 行下方显示每个逻辑核心的使用率</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="show-cpucores">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">磁盘读写速度</div>
+        <div class="setting-hint">每个盘符附加每秒读写速度（↓12M/s ↑3M/s）</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="show-diskio">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">GPU 显存占用</div>
+        <div class="setting-hint">显示当前显存使用 / 总量（如 3.2G / 8G）</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="show-gpuram">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">内存规格</div>
+        <div class="setting-hint">内存下方显示型号与频率（如 DDR4 3200MHz）</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="show-memspec">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">紧凑模式</div>
+        <div class="setting-hint">缩小为单行性能监控（Ctrl+Alt+M 快捷切换）</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="compact">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 显示项 -->
+  <div class="section">
+    <div class="section-title">显示项</div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">GPU</div>
+        <div class="setting-hint">显卡型号与使用率</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="vis-gpu" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">存储</div>
+        <div class="setting-hint">各盘符使用率</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="vis-disk" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">网速</div>
+        <div class="setting-hint">上下行速率</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="vis-net" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">CPU 型号</div>
+        <div class="setting-hint">CPU 下方显示具体型号</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="vis-cpumodel" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="setting-label">电池</div>
+        <div class="setting-hint">台式机自动隐藏，笔记本可手动关闭</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="vis-battery" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 关于 -->
+  <div class="section">
+    <div class="section-title">高级</div>
+    <div class="setting-item" style="flex-direction:column; align-items:stretch; gap:8px;">
+      <div>
+        <div class="setting-label">恢复默认设置</div>
+        <div class="setting-hint">重置所有偏好（主题、配色、玻璃、显示方式、时钟、阈值、可选开关、隐藏行、紧凑模式）</div>
+      </div>
+      <button id="reset-all-btn" type="button" style="font-size:12px; padding:8px 12px; background:transparent; color:#e25c5c; border:1px solid var(--border); border-radius:6px; cursor:pointer; align-self:flex-start;">恢复默认</button>
+    </div>
   </div>
 
   <div class="footer">
-    DeskPulse v<span id="version">1.0.2</span> · <a id="gh-link">GitHub</a> · MIT
+    DeskPulse v<span id="version">1.0.4</span> · <a id="gh-link">GitHub</a> · MIT
   </div>
 
   <script>
     const { ipcRenderer, shell } = require('electron');
-    const checkbox = document.getElementById('autolaunch');
 
     // 动态版本号
     document.getElementById('version').textContent = ipcRenderer.sendSync('get-version');
 
-    // 主题同步：读取 preferences.json 中的手动偏好，无偏好时跟随系统
-    const storedTheme = ipcRenderer.sendSync('get-pref', 'theme');
+    // ====== 主题同步 ======
     const mql = window.matchMedia('(prefers-color-scheme: dark)');
-    const theme = (storedTheme === 'dark' || storedTheme === 'light')
-      ? storedTheme
-      : (mql.matches ? 'dark' : 'light');
-    document.documentElement.setAttribute('data-theme', theme);
 
-    // 监听主组件发来的主题切换
+    function resolveTheme(pref) {
+      if (pref === 'dark' || pref === 'light') return pref;
+      return mql.matches ? 'dark' : 'light';
+    }
+
+    function applySettingsTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+
+    // 初始化：读取偏好，同步单选按钮
+    (function initTheme() {
+      const stored = ipcRenderer.sendSync('get-pref', 'theme');
+      applySettingsTheme(resolveTheme(stored));
+      const radioVal = (stored === 'dark' || stored === 'light') ? stored : 'auto';
+      const radio = document.querySelector(`input[name="theme"][value="${radioVal}"]`);
+      if (radio) radio.checked = true;
+    })();
+
+    // 用户在设置窗口选择主题
+    document.querySelectorAll('input[name="theme"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const val = radio.value;
+        // 通知主进程保存偏好 + 广播到主窗口
+        ipcRenderer.send('set-theme', val === 'auto' ? null : val);
+        // 同步设置窗口自身
+        if (val === 'auto') {
+          applySettingsTheme(mql.matches ? 'dark' : 'light');
+        } else {
+          applySettingsTheme(val);
+        }
+      });
+    });
+
+    // 监听主窗口/托盘发来的主题切换
     ipcRenderer.on('toggle-theme', () => {
       const cur = document.documentElement.getAttribute('data-theme') || 'light';
       const next = cur === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
+      applySettingsTheme(next);
+      // 切换后偏好变为手动模式，同步单选按钮
+      const radio = document.querySelector(`input[name="theme"][value="${next}"]`);
+      if (radio) radio.checked = true;
     });
 
-    // 读取当前开机自启状态
-    checkbox.checked = ipcRenderer.sendSync('get-auto-launch');
-
-    // 切换时写入注册表，用实际返回值校正（无权限时会被系统拒绝）
-    checkbox.addEventListener('change', () => {
-      const result = ipcRenderer.sendSync('set-auto-launch', checkbox.checked);
-      checkbox.checked = result;
+    // 监听设置窗口自己发出的 set-theme 广播回来（其他窗口改了主题）
+    ipcRenderer.on('apply-theme', (_e, theme) => {
+      const t = (theme === null || theme === undefined)
+        ? (mql.matches ? 'dark' : 'light')
+        : theme;
+      applySettingsTheme(t);
+      const radioVal = (theme === null || theme === undefined) ? 'auto' : theme;
+      const radio = document.querySelector(`input[name="theme"][value="${radioVal}"]`);
+      if (radio) radio.checked = true;
     });
 
-    // 外部链接用系统浏览器打开
+    // ====== 配色预设 ======
+    const PRESETS = ['qinglan', 'hailan', 'cuilv', 'zijin', 'jijian'];
+    function applyPreset(val) {
+      if (!PRESETS.includes(val)) val = 'qinglan';
+      document.documentElement.setAttribute('data-preset', val);
+    }
+    (function initPreset() {
+      const stored = ipcRenderer.sendSync('get-pref', 'preset');
+      const val = PRESETS.includes(stored) ? stored : 'qinglan';
+      applyPreset(val);
+      const radio = document.querySelector(`input[name="preset"][value="${val}"]`);
+      if (radio) radio.checked = true;
+    })();
+
+    document.querySelectorAll('input[name="preset"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        applyPreset(radio.value);
+        ipcRenderer.send('set-preset', radio.value);
+      });
+    });
+
+    // 监听主窗口广播回来的配色预设同步
+    ipcRenderer.on('apply-preset', (_e, val) => {
+      applyPreset(val);
+      const radio = document.querySelector(`input[name="preset"][value="${val}"]`);
+      if (radio) radio.checked = true;
+    });
+
+    // ====== 自定义主题色 ======
+    const customAccentInput = document.getElementById('custom-accent-input');
+    const customAccentReset = document.getElementById('custom-accent-reset');
+    (function initCustomAccent() {
+      const stored = ipcRenderer.sendSync('get-pref', 'customAccent');
+      if (stored && /^#[0-9a-fA-F]{3,8}$/.test(stored)) {
+        customAccentInput.value = stored;
+        document.documentElement.style.setProperty('--accent', stored);
+      }
+    })();
+    customAccentInput.addEventListener('input', () => {
+      document.documentElement.style.setProperty('--accent', customAccentInput.value);
+      ipcRenderer.send('set-custom-accent', customAccentInput.value);
+    });
+    customAccentReset.addEventListener('click', () => {
+      const fallbackAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2c6e8a';
+      // 清除自定义色，恢复预设色
+      const preset = ipcRenderer.sendSync('get-pref', 'preset') || 'qinglan';
+      const presetMap = { qinglan:'#2c6e8a', hailan:'#1e549f', cuilv:'#1a7f5a', zijin:'#7c3a9e', jijian:'#4a5565' };
+      const restored = presetMap[preset] || '#2c6e8a';
+      customAccentInput.value = restored;
+      document.documentElement.style.setProperty('--accent', restored);
+      ipcRenderer.send('set-custom-accent', null);
+    });
+    ipcRenderer.on('apply-custom-accent', (_e, val) => {
+      if (val && /^#[0-9a-fA-F]{3,8}$/.test(val)) {
+        customAccentInput.value = val;
+        document.documentElement.style.setProperty('--accent', val);
+      } else {
+        const preset = ipcRenderer.sendSync('get-pref', 'preset') || 'qinglan';
+        const presetMap = { qinglan:'#2c6e8a', hailan:'#1e549f', cuilv:'#1a7f5a', zijin:'#7c3a9e', jijian:'#4a5565' };
+        const restored = presetMap[preset] || '#2c6e8a';
+        customAccentInput.value = restored;
+        document.documentElement.style.setProperty('--accent', restored);
+      }
+    });
+
+    // ====== 时钟样式（12/24h、秒、日期格式） ======
+    (function initClock() {
+      const storedHour = ipcRenderer.sendSync('get-pref', 'clockHour');
+      const hour = (storedHour === '12') ? '12' : '24';
+      const radio = document.querySelector(`input[name="clockHour"][value="${hour}"]`);
+      if (radio) radio.checked = true;
+
+      const storedSeconds = ipcRenderer.sendSync('get-pref', 'clockSeconds');
+      const secondsOn = (storedSeconds === false) ? false : true;
+      document.getElementById('clock-seconds').checked = secondsOn;
+
+      const storedFmt = ipcRenderer.sendSync('get-pref', 'dateFormat');
+      const fmt = ['zh', 'iso', 'us', 'dash'].includes(storedFmt) ? storedFmt : 'zh';
+      const fmtRadio = document.querySelector(`input[name="dateFormat"][value="${fmt}"]`);
+      if (fmtRadio) fmtRadio.checked = true;
+    })();
+    document.querySelectorAll('input[name="clockHour"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        ipcRenderer.send('set-clock-hour', radio.value);
+      });
+    });
+    document.getElementById('clock-seconds').addEventListener('change', (e) => {
+      ipcRenderer.send('set-clock-seconds', e.target.checked);
+    });
+    document.querySelectorAll('input[name="dateFormat"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        ipcRenderer.send('set-date-format', radio.value);
+      });
+    });
+
+    // ====== 阈值告警滑块 ======
+    const alertSlider = document.getElementById('alert-threshold-slider');
+    const alertValueLabel = document.getElementById('alert-threshold-value');
+    (function initAlertThreshold() {
+      const stored = ipcRenderer.sendSync('get-pref', 'alertThreshold');
+      const n = Number(stored);
+      const val = (Number.isFinite(n) && n >= 0 && n <= 100) ? n : 80;
+      alertSlider.value = val;
+      alertValueLabel.textContent = val + '%';
+    })();
+    alertSlider.addEventListener('input', () => {
+      const v = Number(alertSlider.value);
+      alertValueLabel.textContent = v + '%';
+      ipcRenderer.send('set-alert-threshold', v);
+    });
+
+    // ====== 恢复默认设置 ======
+    document.getElementById('reset-all-btn').addEventListener('click', () => {
+      const ok = confirm('确定要恢复所有默认设置吗？\n\n此操作将重置：\n• 主题、配色、玻璃效果\n• 显示方式、时钟样式、阈值告警\n• 所有可选开关（运行时间/WiFi/趋势图等）\n• 隐藏的指标行、紧凑模式\n\n不会清除硬件缓存与窗口位置记忆。');
+      if (!ok) return;
+      // 通知主进程清空 preferences.json
+      ipcRenderer.sendSync('reset-all-prefs');
+      // 重置后重新加载设置窗口让所有 init 函数重跑
+      window.location.reload();
+    });
+
+    // ====== 开机自启 ======
+    const autoCheckbox = document.getElementById('autolaunch');
+    autoCheckbox.checked = ipcRenderer.sendSync('get-auto-launch');
+    autoCheckbox.addEventListener('change', () => {
+      const result = ipcRenderer.sendSync('set-auto-launch', autoCheckbox.checked);
+      autoCheckbox.checked = result;
+    });
+
+    // ====== 玻璃效果 ======
+    (function initGlass() {
+      const stored = ipcRenderer.sendSync('get-pref', 'glass');
+      const val = ['off', 'frost', 'liquid'].includes(stored) ? stored : 'frost';
+      const radio = document.querySelector(`input[name="glass"][value="${val}"]`);
+      if (radio) radio.checked = true;
+    })();
+
+    document.querySelectorAll('input[name="glass"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        ipcRenderer.send('set-glass', radio.value);
+        _updatePanelOpacityUI(radio.value);
+      });
+    });
+
+    // 监听主窗口广播回来的玻璃效果同步
+    ipcRenderer.on('apply-glass', (_e, val) => {
+      const radio = document.querySelector(`input[name="glass"][value="${val}"]`);
+      if (radio) radio.checked = true;
+      _updatePanelOpacityUI(val);
+    });
+
+    // ====== 面板透明度（仅 off/frost 生效，liquid 下禁用） ======
+    const panelSlider = document.getElementById('panel-opacity-slider');
+    const panelValueLabel = document.getElementById('panel-opacity-value');
+    const panelOpacityHint = document.getElementById('panel-opacity-hint');
+    function _updatePanelOpacityUI(glassVal) {
+      const disabled = glassVal === 'liquid';
+      panelSlider.disabled = disabled;
+      panelSlider.style.opacity = disabled ? '0.4' : '1';
+      panelOpacityHint.textContent = disabled
+        ? '液态玻璃下不生效（保护折射效果）'
+        : '仅关闭 / 毛玻璃模式下生效';
+      panelValueLabel.style.color = disabled ? 'var(--muted)' : 'var(--accent)';
+    }
+    (function initPanelOpacity() {
+      const stored = ipcRenderer.sendSync('get-pref', 'panelOpacity');
+      const n = Number(stored);
+      const pct = (Number.isFinite(n) && n >= 0 && n <= 1) ? Math.round(n * 100) : 100;
+      panelSlider.value = pct;
+      panelValueLabel.textContent = pct + '%';
+      const glass = ipcRenderer.sendSync('get-pref', 'glass') || 'frost';
+      _updatePanelOpacityUI(glass);
+    })();
+    panelSlider.addEventListener('input', () => {
+      const pct = Number(panelSlider.value);
+      panelValueLabel.textContent = pct + '%';
+      ipcRenderer.send('set-panel-opacity', pct / 100);
+    });
+
+    // ====== 字体选择 ======
+    const fontSelect = document.getElementById('font-family-select');
+    const fontCustom = document.getElementById('font-family-custom');
+    const fontPreview = document.getElementById('font-preview');
+
+    function _applyFontPreview(val) {
+      // 预览元素直接应用所选字体，设置窗口本身也会通过 --font-family 全局变化
+      const ff = (val && val !== 'default') ? val : '';
+      fontPreview.style.fontFamily = ff || '';
+    }
+
+    (function initFont() {
+      // 拉取系统已安装字体列表（主进程已缓存到 hw-cache，秒回）
+      let systemFonts = [];
+      try {
+        systemFonts = ipcRenderer.sendSync('get-system-fonts') || [];
+      } catch (e) { systemFonts = []; }
+
+      // 中文字体排前（含中日韩统一表意文字），其余在后，各自保持原顺序
+      const CN_RE = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+      const cnFonts = systemFonts.filter(n => CN_RE.test(n));
+      const otherFonts = systemFonts.filter(n => !CN_RE.test(n));
+      const sortedFonts = cnFonts.concat(otherFonts);
+
+      // 把系统字体插入到「默认」和「自定义」之间
+      const customOpt = fontSelect.querySelector('option[value="custom"]');
+      const frag = document.createDocumentFragment();
+      sortedFonts.forEach(name => {
+        // value 用带 fallback 的完整 font-family 值，保证字体缺失时不崩
+        const safeName = name.replace(/'/g, "\\'");
+        const opt = document.createElement('option');
+        opt.value = `'${safeName}', sans-serif`;
+        opt.textContent = name;
+        // 每个选项用该字体本身渲染，直观预览效果
+        opt.style.fontFamily = `'${safeName}', sans-serif`;
+        frag.appendChild(opt);
+      });
+      fontSelect.insertBefore(frag, customOpt);
+
+      // 匹配当前偏好
+      const stored = ipcRenderer.sendSync('get-pref', 'fontFamily');
+      const val = stored || 'default';
+      const presetOpt = fontSelect.querySelector(`option[value="${CSS.escape(val)}"]`);
+      if (presetOpt) {
+        fontSelect.value = val;
+        fontCustom.style.display = 'none';
+      } else if (val !== 'default') {
+        fontSelect.value = 'custom';
+        fontCustom.style.display = '';
+        fontCustom.value = val;
+      } else {
+        fontSelect.value = 'default';
+        fontCustom.style.display = 'none';
+      }
+      _applyFontPreview(val);
+    })();
+
+    fontSelect.addEventListener('change', () => {
+      if (fontSelect.value === 'custom') {
+        fontCustom.style.display = '';
+        fontCustom.focus();
+        if (fontCustom.value) {
+          ipcRenderer.send('set-font-family', fontCustom.value);
+          _applyFontPreview(fontCustom.value);
+        }
+      } else {
+        fontCustom.style.display = 'none';
+        ipcRenderer.send('set-font-family', fontSelect.value);
+        _applyFontPreview(fontSelect.value);
+      }
+    });
+
+    fontCustom.addEventListener('input', () => {
+      const val = fontCustom.value.trim();
+      ipcRenderer.send('set-font-family', val || 'default');
+      _applyFontPreview(val || 'default');
+    });
+
+    // 监听主窗口广播回来的字体同步
+    ipcRenderer.on('apply-font-family', (_e, val) => {
+      const v = val || 'default';
+      const presetOpt = fontSelect.querySelector(`option[value="${CSS.escape(v)}"]`);
+      if (presetOpt) {
+        fontSelect.value = v;
+        fontCustom.style.display = 'none';
+      } else if (v !== 'default') {
+        fontSelect.value = 'custom';
+        fontCustom.style.display = '';
+        fontCustom.value = v;
+      } else {
+        fontSelect.value = 'default';
+        fontCustom.style.display = 'none';
+      }
+      _applyFontPreview(v);
+    });
+
+    // ====== 显示方式（百分比 / 数值） ======
+    (function initDisplayMode() {
+      const stored = ipcRenderer.sendSync('get-pref', 'displayMode');
+      const val = (stored === 'value') ? 'value' : 'percent';
+      const radio = document.querySelector(`input[name="displayMode"][value="${val}"]`);
+      if (radio) radio.checked = true;
+    })();
+
+    document.querySelectorAll('input[name="displayMode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        ipcRenderer.send('set-display-mode', radio.value);
+      });
+    });
+
+    ipcRenderer.on('apply-display-mode', (_e, val) => {
+      const radio = document.querySelector(`input[name="displayMode"][value="${val}"]`);
+      if (radio) radio.checked = true;
+    });
+
+    // ====== 紧凑模式 ======
+    const compactCheckbox = document.getElementById('compact');
+    compactCheckbox.checked = (ipcRenderer.sendSync('get-pref', 'compact') === true);
+
+    // 紧凑模式下，数值显示不生效，禁用显示方式选项
+    function syncDisplayModeState() {
+      const radios = document.querySelectorAll('input[name="displayMode"]');
+      const hint = document.getElementById('display-mode-hint');
+      const item = document.getElementById('display-mode-item');
+      if (compactCheckbox.checked) {
+        radios.forEach(r => { r.disabled = true; r.closest('label').style.opacity = '0.45'; });
+        hint.textContent = '紧凑模式下固定显示百分比';
+        item.style.opacity = '0.6';
+      } else {
+        radios.forEach(r => { r.disabled = false; r.closest('label').style.opacity = ''; });
+        hint.textContent = '内存与磁盘显示百分比或具体数值';
+        item.style.opacity = '';
+      }
+    }
+    syncDisplayModeState();
+
+    compactCheckbox.addEventListener('change', () => {
+      // 通知主进程转发给主窗口
+      ipcRenderer.send('request-set-compact', compactCheckbox.checked);
+      syncDisplayModeState();
+    });
+
+    // ====== 系统运行时间 / WiFi 信号强度（默认关闭） ======
+    const uptimeCheckbox = document.getElementById('show-uptime');
+    uptimeCheckbox.checked = (ipcRenderer.sendSync('get-pref', 'showUptime') === true);
+    uptimeCheckbox.addEventListener('change', () => {
+      ipcRenderer.send('set-show-uptime', uptimeCheckbox.checked);
+    });
+
+    const wifiCheckbox = document.getElementById('show-wifi');
+    wifiCheckbox.checked = (ipcRenderer.sendSync('get-pref', 'showWifi') === true);
+    wifiCheckbox.addEventListener('change', () => {
+      ipcRenderer.send('set-show-wifi', wifiCheckbox.checked);
+    });
+
+    // ====== 迷你趋势图（默认关闭） ======
+    const sparkCheckbox = document.getElementById('show-sparkline');
+    sparkCheckbox.checked = (ipcRenderer.sendSync('get-pref', 'sparkline') === true);
+    sparkCheckbox.addEventListener('change', () => {
+      ipcRenderer.send('set-sparkline', sparkCheckbox.checked);
+    });
+
+    // ====== 数据维度增强（4 项，默认全部关闭） ======
+    const cpuCoresCheckbox = document.getElementById('show-cpucores');
+    cpuCoresCheckbox.checked = (ipcRenderer.sendSync('get-pref', 'showCpuCores') === true);
+    cpuCoresCheckbox.addEventListener('change', () => {
+      ipcRenderer.send('set-show-cpucores', cpuCoresCheckbox.checked);
+    });
+
+    const diskIOCheckbox = document.getElementById('show-diskio');
+    diskIOCheckbox.checked = (ipcRenderer.sendSync('get-pref', 'showDiskIO') === true);
+    diskIOCheckbox.addEventListener('change', () => {
+      ipcRenderer.send('set-show-diskio', diskIOCheckbox.checked);
+    });
+
+    const gpuRamCheckbox = document.getElementById('show-gpuram');
+    gpuRamCheckbox.checked = (ipcRenderer.sendSync('get-pref', 'showGpuRam') === true);
+    gpuRamCheckbox.addEventListener('change', () => {
+      ipcRenderer.send('set-show-gpuram', gpuRamCheckbox.checked);
+    });
+
+    const memSpecCheckbox = document.getElementById('show-memspec');
+    memSpecCheckbox.checked = (ipcRenderer.sendSync('get-pref', 'showMemSpec') === true);
+    memSpecCheckbox.addEventListener('change', () => {
+      ipcRenderer.send('set-show-memspec', memSpecCheckbox.checked);
+    });
+
+    // ====== 显示项（隐藏不需要的指标） ======
+    const VIS_KEYS = [
+      ['vis-gpu', 'row-gpu'],
+      ['vis-disk', 'row-disk'],
+      ['vis-net', 'row-net'],
+      ['vis-cpumodel', 'cpumodel'],
+      ['vis-battery', 'row-power']
+    ];
+    VIS_KEYS.forEach(([checkboxId, metricId]) => {
+      const cb = document.getElementById(checkboxId);
+      const hidden = ipcRenderer.sendSync('get-pref', 'hidden.' + metricId) === true;
+      cb.checked = !hidden;
+      cb.addEventListener('change', () => {
+        ipcRenderer.send('set-visibility', metricId, !cb.checked);
+      });
+    });
+
+    // ====== 外部链接 ======
     document.getElementById('gh-link').addEventListener('click', (e) => {
       e.preventDefault();
       shell.openExternal('https://github.com/LavaIT/DeskPulse');
