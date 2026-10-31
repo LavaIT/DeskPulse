@@ -1,0 +1,164 @@
+{
+  "app": {
+    "widgetTitle": "DeskPulse 桌面监控",
+    "trayTooltip": "DeskPulse · 桌面系统监控"
+  },
+  "common": {
+    "dark": "深色",
+    "light": "浅色"
+  },
+  "widget": {
+    "themeManual": "当前：{theme}（手动）｜点击切换，双击恢复跟随系统",
+    "themeAuto": "当前：跟随系统（{theme}）｜点击手动切换",
+    "menuAria": "菜单",
+    "menuTitle": "菜单（切换主题 / 重置位置 / 退出）",
+    "themeAria": "切换主题"
+  },
+  "menu": {
+    "compact": "紧凑模式",
+    "moveTo": "移动到",
+    "topLeft": "左上角",
+    "topRight": "右上角",
+    "bottomLeft": "左下角",
+    "bottomRight": "右下角",
+    "resetTopRight": "重置到右上角",
+    "taskManager": "任务管理器",
+    "resourceMonitor": "资源监视器",
+    "settings": "设置...",
+    "about": "关于",
+    "quit": "退出",
+    "hide": "隐藏小组件",
+    "show": "显示小组件",
+    "quitApp": "退出 DeskPulse"
+  },
+  "settings": {
+    "title": "DeskPulse 设置",
+    "heading": "设置",
+    "sections": {
+      "general": "通用",
+      "appearance": "个性化",
+      "visibility": "显示项",
+      "advanced": "高级"
+    },
+    "items": {
+      "language": "语言",
+      "autoLaunch": "开机自启",
+      "theme": "主题",
+      "preset": "配色预设",
+      "customAccent": "自定义主题色",
+      "clockHour": "时钟样式",
+      "clockSeconds": "显示秒",
+      "dateFormat": "日期格式",
+      "alertThreshold": "阈值告警",
+      "glass": "玻璃效果",
+      "panelOpacity": "面板透明度",
+      "font": "字体",
+      "displayMode": "显示方式",
+      "uptime": "系统运行时间",
+      "wifi": "WiFi 信号强度",
+      "sparkline": "迷你趋势图",
+      "cpuCores": "CPU 每核负载条",
+      "diskIo": "磁盘读写速度",
+      "gpuRam": "GPU 显存占用",
+      "memSpec": "内存规格",
+      "compact": "紧凑模式",
+      "visGpu": "GPU",
+      "visDisk": "存储",
+      "visNet": "网速",
+      "visCpuModel": "CPU 型号",
+      "visBattery": "电池",
+      "resetAll": "恢复默认设置"
+    },
+    "hints": {
+      "language": "界面语言，默认跟随系统",
+      "autoLaunch": "登录时自动启动 DeskPulse",
+      "theme": "选择界面配色方案",
+      "preset": "强调色与系统名称的显示颜色",
+      "customAccent": "覆盖预设强调色（点击色块选色，重置按钮恢复）",
+      "clockHour": "12 / 24 小时制切换",
+      "clockSeconds": "时间精确到秒",
+      "dateFormat": "日期部分排版样式",
+      "alertThreshold": "CPU / 内存 / GPU 超过该值时变红",
+      "glass": "面板背景透明度与模糊风格",
+      "panelOpacity": "仅关闭 / 毛玻璃模式下生效",
+      "panelOpacityDisabled": "液态玻璃下不生效（保护折射效果）",
+      "font": "选择界面字体（含中文/等宽）",
+      "displayMode": "内存与磁盘显示百分比或具体数值",
+      "displayModeCompact": "紧凑模式下固定显示百分比",
+      "uptime": "在日期下方显示已运行时长",
+      "wifi": "在网速行显示当前 WiFi 信号百分比",
+      "sparkline": "CPU/内存/网速旁显示 60 秒折线趋势",
+      "cpuCores": "CPU 行下方显示每个逻辑核心的使用率",
+      "diskIo": "每个盘符附加每秒读写速度（↓12M/s ↑3M/s）",
+      "gpuRam": "显示当前显存使用 / 总量（如 3.2G / 8G）",
+      "memSpec": "内存下方显示型号与频率（如 DDR4 3200MHz）",
+      "compact": "缩小为单行性能监控（Ctrl+Alt+M 快捷切换）",
+      "visGpu": "显卡型号与使用率",
+      "visDisk": "各盘符使用率",
+      "visNet": "上下行速率",
+      "visCpuModel": "CPU 下方显示具体型号",
+      "visBattery": "台式机自动隐藏，笔记本可手动关闭",
+      "resetAll": "重置所有偏好（主题、配色、玻璃、显示方式、时钟、阈值、可选开关、隐藏行、紧凑模式）"
+    },
+    "options": {
+      "languageAuto": "跟随系统",
+      "followSystem": "跟随系统",
+      "light": "浅色",
+      "dark": "深色",
+      "dateZh": "中文",
+      "dateDash": "点分",
+      "glassOff": "关闭",
+      "glassFrost": "毛玻璃",
+      "glassLiquid": "液态玻璃",
+      "displayPercent": "百分比",
+      "displayValue": "数值",
+      "customAccentReset": "重置",
+      "fontDefault": "默认（等宽字体栈）",
+      "fontCustom": "自定义…",
+      "fontPreview": "Aa 123 你好 DeskPulse · 01:23:45",
+      "fontPlaceholder": "输入字体名，如 'JetBrains Mono', monospace"
+    },
+    "presets": {
+      "qinglan": "青蓝",
+      "hailan": "海蓝",
+      "cuilv": "翠绿",
+      "zijin": "紫金",
+      "jijian": "极简灰"
+    },
+    "reset": {
+      "button": "恢复默认",
+      "confirm": "确定要恢复所有默认设置吗？\n\n此操作将重置：\n• 主题、配色、玻璃效果\n• 显示方式、时钟样式、阈值告警\n• 语言与所有可选开关（运行时间/WiFi/趋势图等）\n• 隐藏的指标行、紧凑模式\n\n不会清除硬件缓存与窗口位置记忆。"
+    },
+    "footer": "DeskPulse v{version} · GitHub · MIT"
+  },
+  "clock": {
+    "weekdays": ["周日", "周一", "周二", "周三", "周四", "周五", "周六"],
+    "months": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+    "dateLong": "{y}年{m}月{d}日 {weekday}",
+    "dateDotted": "{y}.{m}.{d} {weekday}",
+    "uptimeDays": "已运行 {d}天 {h}时 {m}分",
+    "uptimeHours": "已运行 {h}时 {m}分",
+    "uptimeMinutes": "已运行 {m}分"
+  },
+  "status": {
+    "charging": "充电中",
+    "approx": "约{dur}"
+  },
+  "toast": {
+    "hidden": "已隐藏 {label}（设置 → 显示项 可恢复）",
+    "labels": {
+      "gpu": "GPU",
+      "disk": "存储",
+      "net": "网速",
+      "cpuModel": "CPU 型号",
+      "power": "电源"
+    }
+  },
+  "gpu": {
+    "vendorPrefix": "显卡 · {vendor}"
+  },
+  "about": {
+    "title": "关于 DeskPulse",
+    "desc": "桌面系统监控小组件<br>透明 · 无边框 · 始终置顶"
+  }
+}

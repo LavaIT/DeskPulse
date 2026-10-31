@@ -1,22 +1,22 @@
-/* style.css —— DeskPulse 专业风样式
-   设计取向：克制中性色板、表格化数字、细线分隔，靠层级而非色彩承载信息。
-   主题由 <html data-theme="..."> 控制：:root 为浅色（默认），[data-theme="dark"] 覆盖为深色。 */
+/* style.css — DeskPulse professional style
+   Design direction: restrained neutral palette, tabular figures, thin dividers; hierarchy carries information rather than color.
+   Theme controlled by <html data-theme="...">: :root is light (default), [data-theme="dark"] overrides to dark. */
 
 /* ============================================================
-   浅色主题（默认 :root）
+   Light theme (default :root)
    ============================================================ */
 :root {
-  /* 面板底色拆成 RGB 通道 + 用户可调透明度（0-1，默认 1 = 完全不透明） */
+  /* Panel base color split into RGB channels + user-adjustable opacity (0-1, default 1 = fully opaque) */
   --panel-rgb: 250, 250, 252;
   --panel-opacity: 1;
-  --bg-color: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.88));   /* 浅色面板：高不透明度，弱玻璃（毛玻璃默认） */
-  --bg-off: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.97));     /* 关闭玻璃：近实 */
-  --bg-liquid: rgba(245, 248, 255, 0.45);  /* 液态玻璃：半透，偏冷调（硬编码，不受滑块影响） */
-  --text-color: #1a1d23;                    /* 主文字 */
-  --muted-color: #6b7280;                   /* 标签 / 次要文字 */
-  --accent-color: #2c6e8a;                  /* 单一克制强调色（仅用于点缀） */
-  --divider-color: rgba(0, 0, 0, 0.08);     /* 细线分隔 */
-  --border-color: rgba(0, 0, 0, 0.09);      /* 面板描边 */
+  --bg-color: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.88));   /* Light panel: high opacity, subtle glass (frosted by default) */
+  --bg-off: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.97));     /* Glass off: nearly solid */
+  --bg-liquid: rgba(245, 248, 255, 0.45);  /* Liquid glass: translucent, cool-toned (hardcoded, not affected by the slider) */
+  --text-color: #1a1d23;                    /* Primary text */
+  --muted-color: #6b7280;                   /* Labels / secondary text */
+  --accent-color: #2c6e8a;                  /* Single restrained accent color (used only for highlights) */
+  --divider-color: rgba(0, 0, 0, 0.08);     /* Thin divider */
+  --border-color: rgba(0, 0, 0, 0.09);      /* Panel border */
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
   --toggle-bg: rgba(0, 0, 0, 0.04);
   --toggle-bg-hover: rgba(0, 0, 0, 0.10);
@@ -25,16 +25,16 @@
 }
 
 /* ============================================================
-   深色主题
+   Dark theme
    ============================================================ */
 [data-theme="dark"] {
   --panel-rgb: 18, 20, 24;
-  --bg-color: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.82));       /* 深色面板：偏实，弱玻璃 */
-  --bg-off: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.95));        /* 关闭玻璃：近实 */
-  --bg-liquid: rgba(20, 22, 30, 0.38);     /* 液态玻璃：半透，偏冷调（硬编码，不受滑块影响） */
-  --text-color: #e7e9ec;                    /* 主文字（柔白，非纯白） */
-  --muted-color: #7e8590;                   /* 标签灰 */
-  --accent-color: #6aa9c9;                   /* 克制青蓝 */
+  --bg-color: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.82));       /* Dark panel: fairly solid, subtle glass */
+  --bg-off: rgba(var(--panel-rgb), calc(var(--panel-opacity) * 0.95));        /* Glass off: nearly solid */
+  --bg-liquid: rgba(20, 22, 30, 0.38);     /* Liquid glass: translucent, cool-toned (hardcoded, not affected by the slider) */
+  --text-color: #e7e9ec;                    /* Primary text (soft white, not pure white) */
+  --muted-color: #7e8590;                   /* Label gray */
+  --accent-color: #6aa9c9;                   /* Restrained cyan-blue */
   --divider-color: rgba(255, 255, 255, 0.07);
   --border-color: rgba(255, 255, 255, 0.09);
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
@@ -43,13 +43,13 @@
 }
 
 /* ============================================================
-   配色预设（html[data-preset="..."] 覆盖 --accent-color）
-   默认预设 preset-qinglan 的值就是 :root 和 [data-theme="dark"] 中的 accent-color
+   Color presets (html[data-preset="..."] overrides --accent-color)
+   The default preset preset-qinglan uses the same accent-color values as :root and [data-theme="dark"]
    ============================================================ */
-/* 青蓝（默认） */
-html[data-preset="qinglan"] { /* 与默认一致，无需覆盖 */ }
+/* Cyan-blue (default) */
+html[data-preset="qinglan"] { /* Same as default, no override needed */ }
 
-/* 海蓝 — 网易邮箱大师同款，沉稳深蓝 */
+/* Sea blue — same as NetEase Mail Master, calm deep blue */
 html[data-preset="hailan"] {
   --accent-color: #1e549f;
 }
@@ -57,7 +57,7 @@ html[data-theme="dark"][data-preset="hailan"] {
   --accent-color: #4a8fd4;
 }
 
-/* 翠绿 — 清新自然 */
+/* Emerald — fresh and natural */
 html[data-preset="cuilv"] {
   --accent-color: #1a7f5a;
 }
@@ -65,7 +65,7 @@ html[data-theme="dark"][data-preset="cuilv"] {
   --accent-color: #4ec49a;
 }
 
-/* 紫金 — 高级质感 */
+/* Purple gold — premium feel */
 html[data-preset="zijin"] {
   --accent-color: #7c3a9e;
 }
@@ -73,7 +73,7 @@ html[data-theme="dark"][data-preset="zijin"] {
   --accent-color: #b78fd4;
 }
 
-/* 极简灰 — 完全中性 */
+/* Minimal gray — fully neutral */
 html[data-preset="jijian"] {
   --accent-color: #4a5565;
 }
@@ -97,22 +97,22 @@ html, body {
 }
 
 /* ============================================================
-   面板容器
+   Panel container
    ============================================================ */
 .widget {
-  position: relative;                       /* 主题按钮绝对定位参照 */
+  position: relative;                       /* Positioning reference for the theme button */
   background: var(--bg-color);
-  backdrop-filter: blur(6px);              /* 弱玻璃：6px，避免浮夸（毛玻璃默认） */
+  backdrop-filter: blur(6px);              /* Subtle glass: 6px to avoid looking flashy (frosted by default) */
   -webkit-backdrop-filter: blur(6px);
   border-radius: var(--border-radius);
-  padding: 14px 16px 30px;                  /* 底部留 16px 给主题按钮 */
+  padding: 14px 16px 30px;                  /* Leave 16px at the bottom for the theme button */
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow);
 }
 
-/* 玻璃效果模式（data-glass 属性控制） */
+/* Glass effect modes (controlled by the data-glass attribute) */
 .widget[data-glass="off"] {
   background: var(--bg-off);
   backdrop-filter: none;
@@ -127,13 +127,13 @@ html, body {
 .widget[data-glass="frost"]::after { display: none; }
 
 /* ============================================================
-   液态玻璃（Apple Liquid Glass, WWDC 2025）
-   — 流动半透明材质，实时折射背景，边缘高光，凝胶质感，3D 跟随
+   Liquid glass (Apple Liquid Glass, WWDC 2025)
+   — flowing translucent material, real-time background refraction, edge highlights, gel feel, 3D tracking
    ============================================================ */
 
-/* 流动彩色光层：让 backdrop-filter 在纯色壁纸下也有东西可折射 */
+/* Flowing colored light layer: gives backdrop-filter something to refract even on solid-color wallpapers */
 .liquid-blobs {
-  display: none;  /* 默认隐藏，仅液态玻璃模式显示 */
+  display: none;  /* Hidden by default, shown only in liquid glass mode */
 }
 .widget[data-glass="liquid"] .liquid-blobs {
   display: block;
@@ -173,7 +173,7 @@ html, body {
   33% { transform: translate(50px, -40px) scale(1.2); }
   66% { transform: translate(-40px, 30px) scale(0.85); }
 }
-/* 深色模式下光斑稍亮 */
+/* Blobs are slightly brighter in dark mode */
 [data-theme="dark"] .blob { opacity: 0.35; }
 
 .widget[data-glass="liquid"] {
@@ -190,7 +190,7 @@ html, body {
   transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.4), box-shadow 0.25s;
   will-change: transform;
 }
-/* 深色模式：加深底色保证白字可读，光斑仍能透出 */
+/* Dark mode: darken the base so white text stays readable while blobs still show through */
 [data-theme="dark"] .widget[data-glass="liquid"] {
   background: rgba(15, 16, 22, 0.72);
   backdrop-filter: blur(20px) saturate(180%) brightness(0.95);
@@ -204,7 +204,7 @@ html, body {
     inset -1px 0 0 rgba(255,255,255,0.12);
 }
 
-/* 鼠标跟随的动态高光（hover 时显现） */
+/* Dynamic highlight following the mouse (appears on hover) */
 .widget[data-glass="liquid"]::before {
   content: '';
   position: absolute;
@@ -223,7 +223,7 @@ html, body {
 }
 .widget[data-glass="liquid"]:hover::before { opacity: 1; }
 
-/* 顶部细亮边：玻璃反光 */
+/* Thin bright edge at the top: glass reflection */
 .widget[data-glass="liquid"]::after {
   content: '';
   position: absolute;
@@ -237,13 +237,13 @@ html, body {
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
 }
 
-/* 内容层提升 z-index */
+/* Raise the z-index of the content layer */
 .widget[data-glass="liquid"] > .normal-content,
 .widget[data-glass="liquid"] > .compact-content {
   position: relative;
   z-index: 2;
 }
-/* 分隔线更柔和 */
+/* Softer dividers */
 .widget[data-glass="liquid"] .row-top,
 .widget[data-glass="liquid"] .row-power,
 .widget[data-glass="liquid"] .row-split + .row-split,
@@ -259,7 +259,7 @@ html, body {
   border-color: rgba(255,255,255,0.03);
 }
 
-/* 液态玻璃按钮：凝胶回弹 */
+/* Liquid glass buttons: gel bounce */
 .widget[data-glass="liquid"] .theme-toggle,
 .widget[data-glass="liquid"] .menu-btn {
   backdrop-filter: blur(8px) saturate(150%);
@@ -291,7 +291,7 @@ html, body {
 }
 
 /* ============================================================
-   通用行 / 标签 / 数值
+   Common rows / labels / values
    ============================================================ */
 .row {
   display: flex;
@@ -299,9 +299,9 @@ html, body {
   width: 100%;
 }
 
-/* 第一行：日期时间 + 系统 —— 同时是顶部 50px 拖拽区 */
+/* First row: date-time + system — also the 50px drag region at the top */
 .row-top {
-  -webkit-app-region: drag;                /* 拖拽区 */
+  -webkit-app-region: drag;                /* Drag region */
   min-height: 50px;
   justify-content: space-between;
   align-items: baseline;
@@ -338,21 +338,21 @@ html, body {
 }
 
 .osname {
-  color: var(--accent-color);   /* 系统名用蓝色强调 */
+  color: var(--accent-color);   /* System name emphasized in blue */
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-/* 第二行：电源 —— 标签在左、值在右 */
+/* Second row: power — label on the left, value on the right */
 .row-power {
   justify-content: space-between;
   border-bottom: 1px solid var(--divider-color);
   padding: 9px 0;
 }
 
-/* 并排两列行 */
+/* Side-by-side two-column row */
 .row-split {
   justify-content: stretch;
   padding: 9px 0;
@@ -370,14 +370,14 @@ html, body {
   min-width: 0;
 }
 
-/* 第二列加左竖线分隔 */
+/* Add a left divider to the second column */
 .row-split .metric + .metric {
   border-left: 1px solid var(--divider-color);
   padding-left: 14px;
   margin-left: 2px;
 }
 
-/* 标签：大写小号、字距加宽，工具感 */
+/* Label: uppercase small size, wide letter spacing, utilitarian look */
 .label {
   color: var(--muted-color);
   font-size: 9px;
@@ -386,7 +386,7 @@ html, body {
   text-transform: uppercase;
 }
 
-/* 数值：中性主色、表格化数字，等宽对齐；超长（如 GPU 名）省略号截断 */
+/* Value: neutral primary color, tabular figures, monospace alignment; very long values (e.g. GPU names) are ellipsized */
 .value {
   color: var(--text-color);
   font-size: 12.5px;
@@ -398,14 +398,14 @@ html, body {
   text-overflow: ellipsis;
   transition: color 0.3s ease;
 }
-/* 阈值告警：CPU/MEM/GPU 超过阈值（默认 80%）时数值变红 */
+/* Threshold alert: CPU/MEM/GPU values turn red when above the threshold (80% by default) */
 .value.alert,
 .compact-value.alert {
   color: #e25c5c !important;
   font-weight: 600;
 }
 
-/* 双击行快速隐藏的 toast 提示 */
+/* Toast shown when a row is double-clicked to hide quickly */
 .dp-toast {
   position: fixed;
   bottom: 12px;
@@ -430,7 +430,7 @@ html, body {
   transform: translateX(-50%) translateY(0);
 }
 
-/* 子文本：CPU 型号等辅助信息，小号 muted，省略号截断 */
+/* Subtext: auxiliary info such as the CPU model; small muted text, ellipsized */
 .sub {
   color: var(--muted-color);
   font-size: 10px;
@@ -439,7 +439,7 @@ html, body {
   text-overflow: ellipsis;
 }
 
-/* 迷你趋势图（Sparkline）：纯 Canvas 小折线图 */
+/* Sparkline: tiny line chart drawn purely on Canvas */
 .sparkline {
   display: inline-block;
   vertical-align: middle;
@@ -451,7 +451,7 @@ html, body {
   margin-left: 8px;
 }
 
-/* CPU 每核负载条：一排小横条 */
+/* CPU per-core load bars: a row of small horizontal bars */
 .cpu-cores {
   display: flex;
   flex-wrap: wrap;
@@ -474,20 +474,20 @@ html, body {
   border-radius: 1px;
 }
 
-/* 电源值继承主色，状态文字用 muted 收敛（不再用黄/绿彩虹色） */
+/* Power value inherits the primary color; status text stays muted (no more yellow/green rainbow) */
 .battery {
   color: var(--text-color);
   font-size: 12.5px;
 }
 
-/* 网速：方向箭头与数值同为主色，nowrap 防止折行 */
+/* Network speed: arrows and values both use the primary color; nowrap prevents wrapping */
 .net .value {
   color: var(--text-color);
   white-space: nowrap;
 }
 
 /* ============================================================
-   存储多盘列表（全宽行）
+   Storage multi-disk list (full-width row)
    ============================================================ */
 .row-block {
   align-items: flex-start;
@@ -496,7 +496,7 @@ html, body {
   border-top: 1px solid var(--divider-color);
 }
 .row-block .label {
-  min-width: 34px;          /* 让 DISK 标签宽度固定，列表对齐 */
+  min-width: 34px;          /* Fix the DISK label width so the list aligns */
   padding-top: 1px;
 }
 .disk-list {
@@ -514,15 +514,15 @@ html, body {
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
 }
-.disk-item .m {               /* 盘符：C: / D: 等 */
+.disk-item .m {               /* Drive letter: C: / D:, etc. */
   color: var(--muted-color);
 }
-.disk-item .v {               /* 用量数值 */
+.disk-item .v {               /* Usage value */
   color: var(--text-color);
 }
 
 /* ============================================================
-   网速全宽行
+   Full-width network speed row
    ============================================================ */
 .row-net {
   justify-content: space-between;
@@ -531,17 +531,17 @@ html, body {
   border-top: 1px solid var(--divider-color);
 }
 .row-net .value {
-  display: inline-flex;        /* 不再拉伸到 100%，按内容自适应宽度 */
-  flex: 0 0 auto;              /* 不收缩、不增长，避免被父级宽度挤压 */
+  display: inline-flex;        /* No longer stretches to 100%, sized to content */
+  flex: 0 0 auto;              /* Neither shrink nor grow, to avoid being squeezed by the parent width */
   gap: 14px;
   overflow: visible;
   white-space: nowrap;
-  text-overflow: clip;         /* 网速数字永远不省略号，确保完整可读 */
+  text-overflow: clip;         /* Network speed numbers are never ellipsized, so they stay fully readable */
   min-width: 0;
 }
 
 /* ============================================================
-   主题切换按钮：几何符号（◐/●/○），非 emoji，文字色 muted→text
+   Theme toggle button: geometric symbols (◐/●/○), not emoji; text color muted→text
    ============================================================ */
 .theme-toggle {
   position: absolute;
@@ -572,11 +572,11 @@ html, body {
 }
 
 /* ============================================================
-   菜单按钮（⋮）：与主题按钮并排，触发右键式菜单（切换主题/重置位置/退出）
+   Menu button (⋮): next to the theme toggle, opens the context-style menu (toggle theme/reset position/quit)
    ============================================================ */
 .menu-btn {
   position: absolute;
-  right: 34px;              /* 在主题按钮左侧 */
+  right: 34px;              /* To the left of the theme button */
   bottom: 6px;
   width: 20px;
   height: 20px;
@@ -603,8 +603,8 @@ html, body {
 }
 
 /* ============================================================
-   紧凑模式（游戏/追剧贴角监控）：只显示 CPU/GPU/MEM/网速
-   宽度约 220px，单行布局，不显示按钮、标题、拖拽区分隔线
+   Compact mode (corner monitoring while gaming/watching shows): only CPU/GPU/MEM/network speed
+   About 220px wide, single-row layout, no buttons, title, or drag-region divider
    ============================================================ */
 .widget[data-compact="true"] .normal-content,
 .widget[data-compact="true"] .theme-toggle,
@@ -624,7 +624,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  -webkit-app-region: drag;        /* 整行可拖动 */
+  -webkit-app-region: drag;        /* The whole row is draggable */
   font-size: 11px;
   line-height: 1.4;
 }

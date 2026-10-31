@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>关于 DeskPulse</title>
+  <title>DeskPulse</title>
   <style>
     :root {
       --bg: #f5f6f8;
@@ -71,7 +71,7 @@
   <div class="logo"><img src="assets/tray.png" alt="DeskPulse"></div>
   <div class="name">DeskPulse</div>
   <div class="version">v<span id="ver">--</span></div>
-  <div class="desc">桌面系统监控小组件<br>透明 · 无边框 · 始终置顶</div>
+  <div class="desc" data-i18n-html="about.desc">桌面系统监控小组件<br>透明 · 无边框 · 始终置顶</div>
   <div class="links">
     <a id="gh">GitHub</a>
     <a id="license">MIT License</a>
@@ -80,9 +80,22 @@
 
   <script>
     const { ipcRenderer, shell } = require('electron');
+
+    // UI language
+    const i18n = require('./i18n');
+    i18n.setLanguage(ipcRenderer.sendSync('get-language'));
+    i18n.applyDOM();
+    document.title = i18n.t('about.title');
+    // Re-render static text after a language change
+    ipcRenderer.on('apply-language', (_e, lang) => {
+      i18n.setLanguage(lang);
+      i18n.applyDOM();
+      document.title = i18n.t('about.title');
+    });
+
     document.getElementById('ver').textContent = ipcRenderer.sendSync('get-version');
 
-    // 主题同步
+    // Theme sync
     const mql = window.matchMedia('(prefers-color-scheme: dark)');
     function resolveAboutTheme(pref) {
       if (pref === 'dark' || pref === 'light') return pref;
@@ -91,7 +104,7 @@
     const storedTheme = ipcRenderer.sendSync('get-pref', 'theme');
     document.documentElement.setAttribute('data-theme', resolveAboutTheme(storedTheme));
 
-    // 监听主题切换广播
+    // Listen for theme toggle broadcasts
     ipcRenderer.on('apply-theme', (_e, theme) => {
       document.documentElement.setAttribute('data-theme', resolveAboutTheme(theme));
     });

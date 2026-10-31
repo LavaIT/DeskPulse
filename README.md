@@ -1,117 +1,123 @@
 # DeskPulse
 
-> 一款极简的 Windows 桌面系统监控小组件，始终置于顶层。
-> 基于 Electron 构建 · 透明窗口 · 无边框 · 系统托盘 · 支持浅色 / 深色双主题。
+> A minimal always-on-top system monitor widget for the Windows desktop.
+> Built with Electron · Transparent window · Frameless · System tray · Light / dark themes · English & 简体中文.
+
+**English** | [简体中文](README.zh-CN.md)
 
 ---
 
-## 功能特性
+## Features
 
-- **稳定置顶**：高于开始菜单、通知中心、全屏应用和 UWP 悬浮窗。
-- **透明无边框**：无窗口装饰，无缝融入桌面。
-- **鼠标穿透**：默认穿透到桌面；拖拽区和操作区悬停时自动解除穿透，兼顾移动与遮挡。
-- **浅色 / 深色双主题**：自动跟随系统配色，同时支持在小组件菜单与托盘菜单中手动切换。
-- **系统托盘**：一键显示/隐藏、切换主题、重置位置、设置、关于、退出。关闭窗口会退到托盘，不退出进程。
-- **开机自启**：设置窗口中开关控制，通过 Electron `app.setLoginItemSettings` 写入 Windows 注册表。
-- **位置记忆**：拖拽结束后防抖落盘，下次启动自动回到上次位置；离屏时自动回落到右上角默认值。
-- **紧凑模式**：游戏/追剧时切换为单行迷你面板（CPU / GPU / MEM / 网速），仅占用屏幕一角。全局快捷键 `Ctrl+Alt+M` 快速切换，偏好自动保存。
-- **配色预设**：内置 5 套配色（青蓝 / 海蓝 / 翠绿 / 紫金 / 极简），一键切换强调色；支持自定义色盘。
-- **玻璃效果**：关闭 / 毛玻璃 / 液态玻璃（Apple WWDC 2025 风格，鼠标跟随高光 + 3D 透视倾斜）三档。
-- **面板透明度**：滑块调节背景 alpha（0-100%），液态玻璃模式下自动禁用以保护折射。
-- **显示方式**：内存与磁盘可切换「百分比」或「具体数值」显示。
-- **阈值告警**：CPU / MEM / GPU 超过设定阈值时数值变红（默认 80%，可调）。
-- **时钟样式**：12/24 小时切换、是否显示秒、4 种日期格式（中文 / ISO / US / 点分）。
-- **字体选择**：自动扫描系统已安装字体（优先中文名），下拉列表中每个字体用自身渲染预览。
-- **指标显隐**：设置中可开关每项指标；双击任意指标行可快速隐藏，底部 toast 提示恢复路径。
-- **窗口四角定位**：右键 / 托盘菜单一键移到屏幕左上 / 右上 / 左下 / 右下。
-- **快捷启动**：托盘菜单直达任务管理器、资源监视器。
+- **Stays on top**: above the Start menu, notifications, fullscreen apps and UWP flyouts.
+- **Transparent and frameless**: no window decorations, blends into the desktop.
+- **Click-through**: clicks pass to the desktop by default; the drag strip and control areas temporarily disable click-through on hover, so the widget is movable without blocking your work.
+- **Light / dark themes**: follows the system theme, and can be switched manually from the widget menu or the tray menu.
+- **System tray**: show/hide, switch theme, reset position, settings, about and quit. Closing the window hides it to the tray instead of quitting the app.
+- **Launch at login**: toggle in Settings, backed by Electron `app.setLoginItemSettings` (Windows registry).
+- **Position memory**: the window position is debounced and saved after dragging, and restored on the next start; falls back to the top-right corner if it would be off-screen.
+- **Compact mode**: a single-line mini panel (CPU / GPU / MEM / network) for gaming or fullscreen video. Toggle with the global shortcut `Ctrl+Alt+M`; the preference is saved automatically.
+- **Color presets**: 5 built-in presets (Teal Blue / Ocean Blue / Emerald / Purple Gold / Minimal Gray) plus a custom color picker for the accent color.
+- **Glass effects**: Off / Frosted / Liquid (Apple WWDC 2025 style with a cursor-following highlight and slight 3D tilt).
+- **Panel opacity**: a slider for the background alpha (0–100%); automatically disabled in Liquid mode to protect the refraction effect.
+- **Display mode**: memory and disks can be shown as percentages or exact values.
+- **Threshold alerts**: CPU / MEM / GPU values turn red above the configured threshold (default 80%, adjustable).
+- **Clock options**: 12/24-hour time, optional seconds, and 4 date formats (localized / ISO / US / dotted).
+- **Font selection**: scans installed system fonts (localized names first) and renders every dropdown entry in its own typeface.
+- **Show/hide metrics**: toggle each row in Settings; double-click a row to hide it quickly, with a toast explaining how to restore it.
+- **Corner positioning**: move the widget to the top-left / top-right / bottom-left / bottom-right corner from the context or tray menu.
+- **Quick launch**: open Task Manager or Resource Monitor directly from the tray menu.
+- **Interface language**: English and Simplified Chinese, following the system language by default.
 
-### 监控指标
+### Monitored metrics
 
-| 指标 | 说明 |
+| Metric | Details |
 |---|---|
-| 日期与时间 | 本地日期、星期、实时时钟（支持 12/24h、显隐秒、多格式） |
-| 系统信息 | Windows 版本 + 内核平台 |
-| 电池 | 剩余电量百分比 + 充电状态（台式机自动隐藏该行） |
-| CPU | 实时使用率 % + CPU 型号 + 每核负载条（可选） |
-| 内存 | 已用 / 总量 GB + 内存规格 DDR 类型与频率（可选） |
-| 存储 | 各盘符已用 / 总量 GB + 每秒读写速度 ↓↑（可选） |
-| 网络 | 实时上行 / 下行速率（自动选择已连接的物理网卡） |
-| GPU | 厂商、型号、显存总量 + 实时显存占用 / 总量（可选） |
-| 系统运行时间 | 开机至今时长（可选，默认关闭） |
-| WiFi 信号强度 | 当前连接的 WiFi 信号百分比（可选，默认关闭） |
+| Date & time | Local date, weekday and a live clock (12/24h, optional seconds, multiple formats) |
+| System info | Windows version + kernel platform |
+| Battery | Charge percentage + charging state (the row is hidden on desktops) |
+| CPU | Live usage % + CPU model + optional per-core load bars |
+| Memory | Used / total GB + optional memory type and speed |
+| Storage | Used / total GB per drive + optional per-second read/write speed ↓↑ |
+| Network | Live upload / download rate (the active physical adapter is selected automatically) |
+| GPU | Vendor, model, total VRAM + optional live VRAM usage / total |
+| Uptime | Time since boot (optional, off by default) |
+| WiFi signal | Signal strength of the current WiFi connection (optional, off by default) |
 
 ---
 
-## 截图
+## Screenshots
 
-> _截图待补充_。运行后效果：主屏右上角一张 320 像素宽的卡片。
+> _Screenshots coming soon._ When running, a 320 px wide card sits in the top-right corner of the primary display.
 
 ---
 
-## 版本历史
+## Version history
 
-| 版本 | 主要变更 |
+| Version | Highlights |
 |---|---|
-| v1.0.0 | 首发：8 项监控指标、双主题、系统托盘、窗口位置记忆 |
-| v1.0.1 | 5 指标并行采集（Promise.all）、每指标 3s 独立超时、NET 行省略号修复 |
-| v1.0.2 | 网速失真修复、GPU 查询卡死修复、设置窗口 + 关于对话框、偏好持久化、硬件缓存 |
-| v1.0.3 | 刷新频率分层（磁盘/电池 10s）、CPU 型号显示、设置窗口版本号动态读取、主题同步 |
-| v1.0.4 | 紧凑模式（单行迷你面板）、GPU 实时使用率、设置窗口移除默认菜单栏 |
-| v1.0.5 | 设置窗口分板块（通用/个性化/显示项/关于）、毛玻璃 + 液态玻璃效果、5 套配色预设 |
-| v1.0.6 | 不存在的盘符自动隐藏、台式机隐藏电池行、百分比/数值切换、WiFi 强度 + 系统运行时间可选指标、紧凑模式快捷键 `Ctrl+Alt+M`、指标显隐系统 |
-| v1.0.7 | 数据维度增强：CPU 每核负载条、磁盘读写速度、GPU 显存实时占用、内存规格（DDR 类型与频率），均为可选开关 |
-| v1.0.8 | 时钟样式（12/24h、显隐秒、4 种日期格式）、阈值告警变色、双击指标快速隐藏、窗口四角定位、自定义主题色、托盘快启任务管理器/资源监视器、面板透明度滑块、系统字体扫描选择（优先中文名） |
+| v1.0.0 | First release: 8 metrics, light/dark themes, system tray, position memory |
+| v1.0.1 | 5 metrics collected in parallel (`Promise.all`), 3 s per-metric timeout, NET row ellipsis fix |
+| v1.0.2 | Network speed accuracy fix, GPU query hang fix, settings window + about dialog, preference persistence, hardware cache |
+| v1.0.3 | Layered refresh rates (disks/battery every 10 s), CPU model display, dynamic version in Settings, theme sync |
+| v1.0.4 | Compact mode (single-line mini panel), live GPU usage, default menu bar removed from Settings |
+| v1.0.5 | Sectioned settings (General / Appearance / Visible Items / Advanced), Frosted + Liquid glass, 5 color presets |
+| v1.0.6 | Missing drives auto-hidden, battery row hidden on desktops, percent/value switch, optional WiFi + uptime, `Ctrl+Alt+M` shortcut, per-row visibility |
+| v1.0.7 | Data depth: per-core CPU bars, disk read/write speed, live VRAM usage, memory spec (type and speed) — all optional |
+| v1.0.8 | Clock options (12/24h, seconds, 4 date formats), threshold alerts, double-click to hide a row, corner positioning, custom accent color, tray shortcuts to Task Manager / Resource Monitor, panel opacity slider, system font picker |
+| v1.1.0 | Full English localization (UI, tray/menus, settings, about, installer), language preference with system-language detection, bilingual README, `about.html` and `locales/` added to the package |
 
 ---
 
-## 快速开始
+## Quick start
 
-### 运行环境要求
+### Requirements
 
-- Node.js **≥ 18**（推荐 LTS）
+- Node.js **≥ 18** (LTS recommended)
 - npm **≥ 9**
 
-### 开发模式运行
+### Run in development
 
 ```bash
-# 1. 安装依赖
+# 1. Install dependencies
 npm install
 
-# 2. 启动小组件
+# 2. Start the widget
 npm start
 ```
 
-启动后小组件出现在主屏右上角。按住顶部拖拽条可移动位置，点击右上角 `⋮` 弹出操作菜单。
+The widget appears in the top-right corner of the primary display. Drag it by the top strip, or click `⋮` for the action menu.
 
 ---
 
-## 打包发布
+## Building
 
-打包产物包含 **NSIS 安装包** 与 **便携版单文件 exe**，同时生成一份解压目录用于快速调试。全部产物输出到 `build-output/`。
+The build produces an **NSIS installer** and a **portable single-file exe**, plus an unpacked directory for quick debugging. Everything is written to `build-output/`.
 
 ```bash
-# 仅生成解压目录（最快，用于冒烟测试）
+# Unpacked directory only (fastest, good for smoke testing)
 npm run build:dir
 
-# 完整打包：安装包 + 便携版
+# Full build: installer + portable
 npm run build
 ```
 
-打包产物：
+Build artifacts:
 
 ```
 build-output/
-├── DeskPulse Setup 1.0.8.exe    # NSIS 安装包（自定义安装路径 + 桌面/开始菜单快捷方式）
-├── DeskPulse 1.0.8.exe          # 便携版单文件 exe
-└── win-unpacked/DeskPulse.exe   # 解压后的调试版本
+├── DeskPulse Setup 1.1.0.exe    # NSIS installer (custom install path, Start-menu shortcut)
+├── DeskPulse 1.1.0.exe          # Portable single-file exe
+└── win-unpacked/DeskPulse.exe   # Unpacked debug build
 ```
 
-> 打包时会自动读取项目根目录资源：`assets/icon.ico`（应用/安装器/快捷方式图标）与 `assets/tray.png`（透明托盘图标）。若 `tray.png` 不存在，主进程会自动使用 `icon.ico` 缩放作为托盘图标。
+The installer ships English and Simplified Chinese UI and picks the system language automatically.
 
-### 国内网络环境说明
+> Building reads `assets/icon.ico` (app / installer / shortcut icon) and `assets/tray.png` (transparent tray icon). If `tray.png` is missing, the main process falls back to a resized `icon.ico`.
 
-`.npmrc` 已固定 npm registry 至 `registry.npmmirror.com`。执行打包前建议同时设置以下环境变量，以加速 Electron 预编译包与 electron-builder 辅助二进制的下载：
+### Mainland China network note
+
+`.npmrc` pins the npm registry to `registry.npmmirror.com`. Before building, set these environment variables to speed up downloads of the Electron prebuilt binary and electron-builder helper binaries:
 
 ```powershell
 $env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
@@ -123,62 +129,73 @@ npm run build
 
 ---
 
-## 系统托盘菜单
+## Tray menu
 
-| 菜单项 | 作用 |
+| Item | Action |
 |---|---|
-| 显示 / 隐藏小组件 | 切换小组件显隐 |
-| 切换主题 | 在浅色与深色之间切换 |
-| 紧凑模式 | 在完整面板与单行迷你面板之间切换（游戏/追剧时使用） |
-| 移动到 → 左上 / 右上 / 左下 / 右下 | 一键将窗口定位到屏幕四角 |
-| 任务管理器 | 启动 Windows 任务管理器 |
-| 资源监视器 | 启动 Windows 资源监视器 |
-| 重置到右上角 | 将窗口移回主屏右上角默认位置 |
-| 设置... | 打开设置窗口（开机自启开关） |
-| 关于 | 查看版本号与版权信息 |
-| 退出 DeskPulse | 关闭窗口并真正退出进程 |
+| Show / Hide widget | Toggle widget visibility |
+| Toggle theme | Switch between light and dark |
+| Compact mode | Switch between the full panel and the single-line mini panel |
+| Move to → Top-left / Top-right / Bottom-left / Bottom-right | Move the window to a corner |
+| Task Manager | Launch Windows Task Manager |
+| Resource Monitor | Launch Windows Resource Monitor |
+| Reset to top right | Move the window back to the default position |
+| Settings... | Open the settings window |
+| About | Version and copyright information |
+| Quit DeskPulse | Close the window and exit the process |
 
-**鼠标左键** 点击托盘图标等同于显示 / 隐藏小组件。
+**Left-clicking** the tray icon toggles the widget. Menu labels follow the selected interface language.
 
 ---
 
-## 项目结构
+## Project structure
 
 ```
 desk-pulse/
-├── main.js            # Electron 主进程：窗口创建、托盘、IPC、窗口位置记忆
-├── renderer.js        # 渲染进程：systeminformation 采集、主题、UI 更新
-├── index.html         # 小组件 DOM 结构
-├── style.css          # 主题变量与布局（浅色/深色通过 CSS 变量切换）
-├── settings.html      # 设置窗口页面（通用 / 个性化 / 显示项 / 关于 四个板块）
+├── main.js            # Electron main process: windows, tray, IPC, position memory
+├── renderer.js        # Renderer: systeminformation collection, themes, UI updates
+├── i18n.js            # Shared localization module (main + renderers)
+├── locales/
+│   ├── zh-CN.json     # Simplified Chinese strings
+│   └── en-US.json     # English strings
+├── index.html         # Widget DOM
+├── style.css          # Theme variables and layout (light/dark via CSS variables)
+├── settings.html      # Settings window (General / Appearance / Visible Items / Advanced)
+├── about.html         # About window
 ├── assets/
-│   ├── icon.ico       # 应用/安装器/快捷方式图标（多尺寸 ICO，≥ 256×256）
-│   └── tray.png       # 透明托盘图标（≥ 64×64 为佳）
-├── .gitignore         # 忽略 node_modules / .cache / build-output / userData
-├── .npmrc             # registry 与国内镜像说明
-├── package.json       # 元信息 + 打包配置
-└── userData/          # 运行时数据（窗口位置、偏好、硬件缓存，不进 git）
+│   ├── icon.ico       # App / installer / shortcut icon (multi-size ICO, ≥ 256×256)
+│   └── tray.png       # Transparent tray icon (≥ 64×64 recommended)
+├── README.md          # English documentation
+├── README.zh-CN.md    # Chinese documentation
+├── .gitignore         # Ignores node_modules / .cache / build-output / userData
+├── .npmrc             # Registry and mirror notes
+├── package.json       # Metadata + build configuration
+└── userData/          # Runtime data (window position, preferences, hardware cache; not in git)
 ```
 
 ---
 
-## 常见问题
+## FAQ
 
-### 为什么没有 CPU 温度？
+### Why is there no CPU temperature?
 
-Windows 读取 CPU DTS 寄存器需要内核级驱动或管理员权限（例如 LibreHardwareMonitor）。为了让应用轻量化、零额外依赖、普通用户权限即可运行，CPU 温度被有意移除。
+Reading CPU DTS registers on Windows requires a kernel driver or administrator privileges (e.g. LibreHardwareMonitor). To keep the app lightweight, dependency-free and runnable as a regular user, CPU temperature was intentionally left out.
 
-### 为什么关闭窗口后程序没退出？
+### Why doesn't the app exit when I close the window?
 
-小组件关闭并不会退出进程，而是隐藏到系统托盘（桌面小组件的标准做法）。**左键托盘图标** 即可重新显示。真正退出请使用托盘菜单的「退出 DeskPulse」。
+Closing the widget hides it to the system tray instead of quitting — the standard behavior for desktop widgets. **Left-click the tray icon** to show it again. To really exit, use the tray item “Quit DeskPulse”.
 
-### 怎么替换图标？
+### How do I change the language?
 
-- 替换 `assets/icon.ico`：一张多尺寸 `.ico`（含 16/32/48/64/128/256），会同时用于 exe、快捷方式、安装器与卸载器。
-- 替换 `assets/tray.png`：一张带透明通道的 PNG，主进程会以最高画质缩放至 16×16 供托盘使用。
+Open Settings → General → Language and choose **System**, **中文** or **English**. Changes apply immediately to the widget, tray menu, Settings and About windows.
+
+### How do I replace the icons?
+
+- Replace `assets/icon.ico` with a multi-size `.ico` (16/32/48/64/128/256). It is used for the exe, shortcuts, installer and uninstaller.
+- Replace `assets/tray.png` with a PNG that has an alpha channel; the main process scales it to 16×16 at the highest quality.
 
 ---
 
-## 开源协议
+## License
 
 MIT © Lava

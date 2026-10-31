@@ -1,8 +1,8 @@
-// renderer.js —— 渲染进程
-// 职责：深色/浅色主题（跟随系统 + 手动切换 + 菜单触发）、日期时间更新、
-//       硬件数据采集（CPU/温度/GPU/内存/存储多盘/电池续航/网速，每秒刷新）、
-//       窗口自适应高度、鼠标穿透动态切换、菜单按钮。
-// 由于 main.js 中开启了 nodeIntegration，可直接 require Node 模块。
+// renderer.js — renderer process
+// Responsibilities: dark/light theme (follow system + manual toggle + menu trigger), date/time updates,
+//       hardware data collection (CPU/temperature/GPU/memory/multi-disk storage/battery/network speed, refreshed every second),
+//       adaptive window height, dynamic mouse pass-through switching, menu button.
+// nodeIntegration is enabled in main.js, so Node modules can be required directly.
 
 const { ipcRenderer, shell } = require('electron');
 const os = require('os');
@@ -10,7 +10,7 @@ const fs = require('fs');
 const si = require('systeminformation');
 
 // ============================================================
-// 偏好读写封装（替代 localStorage，持久化到 userData/preferences.json）
+// Preference read/write wrapper (replaces localStorage, persisted to userData/preferences.json)
 // ============================================================
 function getPref(key) {
   return ipcRenderer.sendSync('get-pref', key);
@@ -19,29 +19,33 @@ function setPref(key, value) {
   ipcRenderer.sendSync('set-pref', key, value);
 }
 
-// 启动时读取硬件缓存（GPU 名称/显存、内存总量、磁盘列表 — 不变的静态信息）
+// Read the hardware cache at startup (GPU name/VRAM, total memory, disk list — static info that never changes)
 const hwCache = ipcRenderer.sendSync('get-hw-cache');
 
+// UI language: resolved by the main process (manual preference or system locale)
+const i18n = require('./i18n');
+i18n.setLanguage(ipcRenderer.sendSync('get-language'));
+
 // ============================================================
-// 一、主题系统：跟随系统深色/浅色 + 手动切换（偏好文件持久化）
-// 仅修改 CSS 变量（data-theme 属性），不涉及主进程
+// 1. Theme system: follow system dark/light + manual toggle (persisted via the preferences file)
+// Only modifies CSS variables via the data-theme attribute; no main-process involvement
 // ============================================================
 const THEME_KEY = 'theme';
 
-// 动态创建主题切换按钮（不修改 index.html），插入到 .widget 右下角
+// Create the theme toggle button dynamically (index.html untouched), inserted at the bottom-right of .widget
 const toggleBtn = document.createElement('button');
 toggleBtn.className = 'theme-toggle';
-toggleBtn.setAttribute('aria-label', '切换主题');
+toggleBtn.setAttribute('aria-label', i18n.t('widget.themeAria'));
 document.querySelector('.widget').appendChild(toggleBtn);
 
-// 检测系统主题偏好
+// Detect the system theme preference
 const mql = window.matchMedia('(prefers-color-scheme: dark)');
 
 function getSystemTheme() {
   return mql.matches ? 'dark' : 'light';
 }
 
-// 将主题写到 <html data-theme="...">，CSS 变量随之切换
+// Write the theme to <html data-theme="...">; CSS variables switch accordingly
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
 }
@@ -50,27 +54,28 @@ function currentTheme() {
   return document.documentElement.getAttribute('data-theme') || getSystemTheme();
 }
 
-// 是否存在手动偏好（偏好文件存 'dark'/'light' 视为手动覆盖）
+// Whether a manual preference exists ('dark'/'light' in the preferences file counts as a manual override)
 function isManualOverride() {
   const v = getPref(THEME_KEY);
   return v === 'dark' || v === 'light';
 }
 
-// 同步按钮图标与提示文案（几何符号 ◐/●/○，非 emoji，适配专业风）
+// Sync the button icon and tooltip text (geometric glyphs ◐/●/○, not emoji, for a professional look)
 function updateToggleUI() {
-  const t = currentTheme();
+  const mode = currentTheme();
+  const themeName = i18n.t(mode === 'dark' ? 'common.dark' : 'common.light');
   if (isManualOverride()) {
-    // 手动模式：实心圆=深色 / 空心圆=浅色
-    toggleBtn.textContent = t === 'dark' ? '●' : '○';
-    toggleBtn.title = `当前：${t === 'dark' ? '深色' : '浅色'}（手动）｜点击切换，双击恢复跟随系统`;
+    // Manual mode: filled circle = dark / hollow circle = light
+    toggleBtn.textContent = mode === 'dark' ? '●' : '○';
+    toggleBtn.title = i18n.t('widget.themeManual', { theme: themeName });
   } else {
-    // 跟随系统：半圆表示自动
+    // Follow system: a half circle indicates automatic
     toggleBtn.textContent = '◐';
-    toggleBtn.title = `当前：跟随系统（${t === 'dark' ? '深色' : '浅色'}）｜点击手动切换`;
+    toggleBtn.title = i18n.t('widget.themeAuto', { theme: themeName });
   }
 }
 
-// 切换主题（按钮点击与菜单都走这个）
+// Toggle the theme (used by both the button click and the menu)
 function toggleTheme() {
   const next = currentTheme() === 'dark' ? 'light' : 'dark';
   setPref(THEME_KEY, next);
@@ -78,7 +83,7 @@ function toggleTheme() {
   updateToggleUI();
 }
 
-// 初始化：优先偏好文件，否则跟随系统
+// Init: prefer the stored preference, otherwise follow the system
 (function initTheme() {
   const stored = getPref(THEME_KEY);
   const initial = isManualOverride() ? stored : getSystemTheme();
@@ -86,18 +91,18 @@ function toggleTheme() {
   updateToggleUI();
 })();
 
-// 监听系统主题变化（实时）：仅在未手动覆盖时跟随
+// Listen for system theme changes (live): follow only when there is no manual override
 mql.addEventListener('change', (e) => {
-  if (isManualOverride()) return; // 用户已手动设置，不跟随系统
+  if (isManualOverride()) return; // User already set it manually; don't follow the system
   const t = e.matches ? 'dark' : 'light';
   applyTheme(t);
   updateToggleUI();
 });
 
-// 按钮点击：手动切换
+// Button click: manual toggle
 toggleBtn.addEventListener('click', toggleTheme);
 
-// 双击：清除手动偏好，恢复跟随系统
+// Double-click: clear the manual preference and resume following the system
 toggleBtn.addEventListener('dblclick', (e) => {
   e.preventDefault();
   setPref(THEME_KEY, null);
@@ -105,13 +110,13 @@ toggleBtn.addEventListener('dblclick', (e) => {
   updateToggleUI();
 });
 
-// 主进程菜单"切换主题"回调
+// Main-process menu "toggle theme" callback
 ipcRenderer.on('toggle-theme', toggleTheme);
 
-// 设置窗口发来的指定主题（null=跟随系统 / 'dark' / 'light'）
+// Specific theme sent by the settings window (null = follow system / 'dark' / 'light')
 ipcRenderer.on('apply-theme', (_e, theme) => {
   if (theme === null || theme === undefined) {
-    // 清除手动偏好，跟随系统
+    // Clear the manual preference and follow the system
     setPref(THEME_KEY, null);
     applyTheme(getSystemTheme());
   } else {
@@ -122,10 +127,10 @@ ipcRenderer.on('apply-theme', (_e, theme) => {
 });
 
 // ============================================================
-// 一-1b、玻璃效果：data-glass 属性控制面板透明度与模糊风格
+// 1-1b. Glass effect: the data-glass attribute controls panel transparency and blur style
 // ============================================================
 const GLASS_KEY = 'glass';
-let _liquidHL = null;  // 液态玻璃高光追踪状态
+let _liquidHL = null;  // Liquid glass highlight tracking state
 
 function applyGlass(val) {
   const w = document.querySelector('.widget');
@@ -142,7 +147,7 @@ function applyGlass(val) {
   }
 }
 
-// 液态玻璃：鼠标跟随高光 + 3D 透视倾斜
+// Liquid glass: cursor-following highlight + 3D perspective tilt
 function enableLiquidHighlight() {
   if (_liquidHL) return;
   const widget = document.querySelector('.widget');
@@ -152,10 +157,10 @@ function enableLiquidHighlight() {
     const r = widget.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
-    // 径向高光位置
+    // Radial highlight position
     widget.style.setProperty('--mx', x + 'px');
     widget.style.setProperty('--my', y + 'px');
-    // 3D 透视倾斜：朝鼠标方向微倾
+    // 3D perspective tilt: leans slightly toward the cursor
     const rx = ((y / r.height) - 0.5) * -4;
     const ry = ((x / r.width) - 0.5) * 4;
     widget.style.transform = `perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg)`;
@@ -181,22 +186,22 @@ function disableLiquidHighlight() {
   _liquidHL = null;
 }
 
-// 监听设置窗口发来的玻璃效果切换
+// Listen for glass-effect switches sent by the settings window
 ipcRenderer.on('apply-glass', (_e, val) => {
   applyGlass(val);
   setPref(GLASS_KEY, val);
 });
 
-// 初始化：从偏好读取
+// Init: read from the preferences
 (function initGlass() {
   const stored = getPref(GLASS_KEY);
   applyGlass(stored || 'frost');
 })();
 
 // ============================================================
-// 一-1b-2、面板透明度：滑块控制 --panel-opacity（0-1）
-// 仅影响 off / frost 模式的面板背景 alpha；
-// liquid 模式背景为硬编码 rgba，天然不受滑块影响（避免破坏折射）。
+// 1-1b-2. Panel opacity: the slider controls --panel-opacity (0-1)
+// Affects only the panel background alpha in off / frost modes;
+// liquid mode uses a hard-coded rgba background, so the slider has no effect (avoids breaking refraction).
 // ============================================================
 const PANEL_OPACITY_KEY = 'panelOpacity';
 
@@ -213,12 +218,12 @@ ipcRenderer.on('apply-panel-opacity', (_e, val) => {
 
 (function initPanelOpacity() {
   const stored = getPref(PANEL_OPACITY_KEY);
-  applyPanelOpacity(stored);  // undefined → 1（默认完全不透明）
+  applyPanelOpacity(stored);  // undefined → 1 (fully opaque by default)
 })();
 
 // ============================================================
-// 一-1b-3、字体选择：用户可指定 --font-family
-// 'default' = 恢复 CSS 默认字体栈；其他值直接写入 CSS 变量
+// 1-1b-3. Font selection: the user can specify --font-family
+// 'default' = restore the CSS default font stack; any other value is written to the CSS variable directly
 // ============================================================
 const FONT_FAMILY_KEY = 'fontFamily';
 
@@ -241,7 +246,7 @@ ipcRenderer.on('apply-font-family', (_e, val) => {
 })();
 
 // ============================================================
-// 一-1c、配色预设：html[data-preset] 覆盖 --accent-color
+// 1-1c. Color presets: html[data-preset] overrides --accent-color
 // ============================================================
 const PRESET_KEY = 'preset';
 const VALID_PRESETS = ['qinglan', 'hailan', 'cuilv', 'zijin', 'jijian'];
@@ -262,14 +267,14 @@ ipcRenderer.on('apply-preset', (_e, val) => {
 })();
 
 // ============================================================
-// 一-1c-2、主题色自定义：5 个预设之外加一个色盘选择器
-// 选完写入 --accent-color，覆盖预设
+// 1-1c-2. Custom accent color: a color picker in addition to the 5 presets
+// The picked color is written to --accent-color, overriding the preset
 // ============================================================
 const CUSTOM_ACCENT_KEY = 'customAccent';
 
 function applyCustomAccent(color) {
   if (!color || typeof color !== 'string' || !/^#[0-9a-fA-F]{3,8}$/.test(color)) {
-    // 清除自定义色，恢复预设
+    // Clear the custom color and restore the preset
     document.documentElement.style.removeProperty('--accent-color');
     return;
   }
@@ -287,7 +292,7 @@ ipcRenderer.on('apply-custom-accent', (_e, color) => {
 })();
 
 // ============================================================
-// 一-1d、显示方式：百分比 / 具体数值
+// 1-1d. Display mode: percentage / absolute value
 // ============================================================
 const DISPLAY_MODE_KEY = 'displayMode';
 let _displayMode = 'percent'; // 'percent' | 'value'
@@ -298,14 +303,14 @@ function isValueMode() {
 
 function applyDisplayMode(val) {
   _displayMode = (val === 'value') ? 'value' : 'percent';
-  // 立即重渲染已有的数据行（不重新采集，只改显示文本）
+  // Re-render the existing data rows immediately (no re-collection, only the display text changes)
   const memEl = document.getElementById('mem');
   const memCompact = document.getElementById('mem-compact');
   const diskEl = document.getElementById('disklist');
-  // CPU 永远是百分比，无需重渲染
-  // 触发一次内存和磁盘的更新以应用新格式（数据仍在内存中，直接重渲染即可）
-  // 这里简单做法：标记后让下一轮 updateSlow/updateFast 自然刷新；
-  // 但为了即时响应，直接重跑这两个函数
+  // CPU is always a percentage, so no re-render is needed
+  // Trigger one memory and disk update to apply the new format (the data is still in memory, just re-render it)
+  // Simple approach: mark it and let the next updateSlow/updateFast refresh naturally;
+  // but for an immediate response, re-run these two functions directly
   updateMem();
   updateDisk();
 }
@@ -321,9 +326,9 @@ ipcRenderer.on('apply-display-mode', (_e, val) => {
 })();
 
 // ============================================================
-// 一-1e、可选指标开关：系统运行时间 / WiFi 信号强度（默认关闭）
+// 1-1e. Optional metric toggles: system uptime / WiFi signal strength (off by default)
 // ============================================================
-let lastHeight = 0;  // 窗口高度缓存（必须在 resizeWindow 首次调用前初始化）
+let lastHeight = 0;  // Window height cache (must be initialized before resizeWindow's first call)
 const SHOW_UPTIME_KEY = 'showUptime';
 const SHOW_WIFI_KEY = 'showWifi';
 
@@ -356,11 +361,11 @@ ipcRenderer.on('apply-show-wifi', (_e, on) => {
 })();
 
 // ============================================================
-// 一-1f、迷你趋势图（Sparkline）：CPU/内存/网速最近 60 秒小折线图
-// 默认关闭，在设置里开关。开启后在数值旁画 60×16 / 80×16 的 Canvas 折线
+// 1-1f. Sparkline: small line charts of CPU/memory/network speed over the last 60 seconds
+// Off by default, toggled in settings. When enabled, draws a 60×16 / 80×16 Canvas polyline next to the value
 // ============================================================
 const SPARK_KEY = 'sparkline';
-const SPARK_MAX = 60;  // 环形缓冲区容量（60 个采样点 = 60 秒）
+const SPARK_MAX = 60;  // Ring buffer capacity (60 samples = 60 seconds)
 const _sparkData = { cpu: [], mem: [], net: [] };
 
 function _getSparkColor() {
@@ -387,7 +392,7 @@ function _drawSpark(canvasId, key, maxVal) {
   const hi = Math.max(...buf);
   const range = (hi - lo) || 1;
   const stepX = w / (SPARK_MAX - 1);
-  // 折线
+  // Polyline
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -398,7 +403,7 @@ function _drawSpark(canvasId, key, maxVal) {
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
-  // 下方填充半透明
+  // Semi-transparent fill below
   ctx.lineTo((buf.length - 1) * stepX, h);
   ctx.lineTo(0, h);
   ctx.closePath();
@@ -434,28 +439,28 @@ ipcRenderer.on('apply-sparkline', (_e, on) => {
 })();
 
 // ============================================================
-// 一-1g-2、数据维度增强（默认全部关闭）
-//   1. CPU 每核负载条  — CPU 行下方一排小横条，每个逻辑核心一条
-//   2. 磁盘读写速度    — DISK 每个盘符附加 ↓12M/s ↑3M/s
-//   3. GPU 显存占用    — GPU 行显示当前显存/总量
-//   4. 内存规格        — MEM 行下方小字 DDR4 3200MHz
+// 1-1g-2. Enhanced data dimensions (all off by default)
+//   1. CPU per-core load bars  — a row of small bars under the CPU row, one per logical core
+//   2. Disk read/write speed   — DISK appends ↓12M/s ↑3M/s to each drive
+//   3. GPU VRAM usage          — the GPU row shows current VRAM / total
+//   4. Memory spec             — small text DDR4 3200MHz under the MEM row
 // ============================================================
 const SHOW_CPUCORES_KEY = 'showCpuCores';
 const SHOW_DISKIO_KEY   = 'showDiskIO';
 const SHOW_GPURAM_KEY   = 'showGpuRam';
 const SHOW_MEMSPEC_KEY  = 'showMemSpec';
 
-let _cpuCoresOn = false;  // 是否启用 CPU 每核负载条
-let _diskIOOn   = false;  // 是否启用磁盘读写速度
-let _gpuRamOn   = false;  // 是否启用 GPU 显存占用
-let _memSpecOn  = false;  // 是否启用内存规格
-let _coreBarsCreated = false;  // CPU 每核负载条 DOM 是否已创建（提前声明，避免 TDZ）
+let _cpuCoresOn = false;  // Whether CPU per-core load bars are enabled
+let _diskIOOn   = false;  // Whether disk read/write speed is enabled
+let _gpuRamOn   = false;  // Whether GPU VRAM usage is enabled
+let _memSpecOn  = false;  // Whether memory spec is enabled
+let _coreBarsCreated = false;  // Whether the CPU core-bar DOM has been created (declared early to avoid TDZ)
 
 function setCpuCoresVisible(on) {
   _cpuCoresOn = !!on;
   const el = document.getElementById('cpucores');
   if (el) el.style.display = _cpuCoresOn ? '' : 'none';
-  // 重置已创建标记：关闭后再开启需要重新生成
+  // Reset the created flag: re-enabling after disabling requires regeneration
   _coreBarsCreated = false;
   if (_cpuCoresOn) safe(updateCPU, 3000);
   resizeWindow();
@@ -473,7 +478,7 @@ function setGpuRamVisible(on) {
   _gpuRamOn = !!on;
   const el = document.getElementById('gpuram');
   if (el) el.style.display = _gpuRamOn ? '' : 'none';
-  // 立即触发一次 GPU 采集以填充显存字段
+  // Trigger one GPU collection immediately to fill in the VRAM field
   if (_gpuRamOn) safe(updateGPU, 3000);
   resizeWindow();
 }
@@ -509,7 +514,7 @@ ipcRenderer.on('apply-show-diskio', (_e, on) => {
 })();
 
 // ============================================================
-// 一-1g、指标显隐：用户可在设置中隐藏不需要的行
+// 1-1g. Metric visibility: users can hide unneeded rows in settings
 // ============================================================
 const VIS_METRICS = ['row-gpu', 'row-disk', 'row-net', 'cpumodel', 'row-power'];
 
@@ -535,11 +540,11 @@ ipcRenderer.on('apply-visibility', (_e, metricId, hidden) => {
 initVisibility();
 
 // ============================================================
-// 一-1g-2、双击指标行快速隐藏 + Toast 提示
-// 双击任意一行直接隐藏，进设置 → 显示项 可恢复
+// 1-1g-2. Quick-hide a metric row on double-click + Toast hint
+// Double-click any row to hide it; restore it via Settings → Display items
 // ============================================================
 
-// 临时 toast：底部居中浮层，3 秒后淡出
+// Temporary toast: bottom-centered overlay, fades out after 3 seconds
 let _toastTimer = null;
 function _showToast(text) {
   let toast = document.getElementById('dp-toast');
@@ -557,26 +562,27 @@ function _showToast(text) {
   }, 2500);
 }
 
-// 行 id → 中文名映射（用于 toast 提示）
-const ROW_LABELS = {
-  'row-gpu': 'GPU',
-  'row-disk': '存储',
-  'row-net': '网速',
-  'cpumodel': 'CPU 型号',
-  'row-power': '电源'
+// Row id → label-key mapping (for toast hints)
+const ROW_LABEL_KEYS = {
+  'row-gpu': 'toast.labels.gpu',
+  'row-disk': 'toast.labels.disk',
+  'row-net': 'toast.labels.net',
+  'cpumodel': 'toast.labels.cpuModel',
+  'row-power': 'toast.labels.power'
 };
 
 function _quickHide(metricId) {
   if (!VIS_METRICS.includes(metricId)) return;
-  // 通过 IPC 持久化 + 广播，复用现有 visibility 系统
+  // Persist and broadcast via IPC, reusing the existing visibility system
   ipcRenderer.send('set-visibility', metricId, true);
-  applyVisibility(metricId, true);  // 立即响应，不等 IPC 往返
-  const label = ROW_LABELS[metricId] || metricId;
-  _showToast(`已隐藏 ${label}（设置 → 显示项 可恢复）`);
+  applyVisibility(metricId, true);  // Respond immediately, don't wait for the IPC round-trip
+  const labelKey = ROW_LABEL_KEYS[metricId];
+  const label = labelKey ? i18n.t(labelKey) : metricId;
+  _showToast(i18n.t('toast.hidden', { label }));
 }
 
 (function initQuickHide() {
-  // 给每个可隐藏的行加 dblclick 监听
+  // Add a dblclick listener to every hideable row
   VIS_METRICS.forEach(metricId => {
     const el = document.getElementById(metricId) || document.querySelector('.' + metricId);
     if (!el) return;
@@ -589,10 +595,10 @@ function _quickHide(metricId) {
 })();
 
 // ============================================================
-// 一-2、紧凑模式开关：data-compact 属性 + 偏好持久化
+// 1-2. Compact mode toggle: data-compact attribute + preference persistence
 // ============================================================
 const COMPACT_KEY = 'compact';
-const COMPACT_WIDTH = 220;  // 紧凑模式窗口宽度
+const COMPACT_WIDTH = 220;  // Compact-mode window width
 
 function isCompact() {
   return document.querySelector('.widget').getAttribute('data-compact') === 'true';
@@ -601,25 +607,25 @@ function isCompact() {
 function applyCompact(on) {
   const w = document.querySelector('.widget');
   w.setAttribute('data-compact', on ? 'true' : 'false');
-  // 通知主进程切换窗口宽度 + 鼠标穿透策略（紧凑模式整区可拖不穿透）
+  // Notify the main process to switch the window width + mouse pass-through policy (in compact mode the whole area is draggable and not click-through)
   ipcRenderer.send('set-compact', on, COMPACT_WIDTH);
-  // 高度交给 resizeWindow，它会在 DOM 渲染后取准确 scrollHeight
+  // Height is left to resizeWindow, which reads the accurate scrollHeight after DOM rendering
   resizeWindow();
 }
 
-// 主进程触发紧凑模式切换
+// The main process triggers a compact-mode toggle
 ipcRenderer.on('toggle-compact', () => {
   const next = !isCompact();
   setPref(COMPACT_KEY, next);
   applyCompact(next);
 });
 
-// 主进程同步当前紧凑状态（设置窗口 / 托盘菜单勾选用）
+// The main process syncs the current compact state (for the settings window / tray menu checkmark)
 ipcRenderer.on('set-compact-state', (_e, on) => {
   applyCompact(on);
 });
 
-// 初始化紧凑模式：从偏好读取
+// Init compact mode: read from the preferences
 (function initCompact() {
   const stored = getPref(COMPACT_KEY);
   if (stored === true) {
@@ -628,42 +634,42 @@ ipcRenderer.on('set-compact-state', (_e, on) => {
 })();
 
 // ============================================================
-// 二、菜单按钮（⋮）：触发右键式菜单（切换主题 / 重置位置 / 退出）
-// 用按钮而非右键，因为窗口主体鼠标穿透 + 顶部拖拽区，右键不可靠
+// 2. Menu button (⋮): triggers the context-style menu (toggle theme / reset position / quit)
+// A button instead of a right-click, because the window body is click-through and the top is a drag zone, making right-click unreliable
 // ============================================================
 const menuBtn = document.createElement('button');
 menuBtn.className = 'menu-btn';
-menuBtn.setAttribute('aria-label', '菜单');
+menuBtn.setAttribute('aria-label', i18n.t('widget.menuAria'));
 menuBtn.textContent = '⋮';
-menuBtn.title = '菜单（切换主题 / 重置位置 / 退出）';
+menuBtn.title = i18n.t('widget.menuTitle');
 document.querySelector('.widget').appendChild(menuBtn);
 
 menuBtn.addEventListener('click', () => ipcRenderer.send('show-context-menu'));
-// 右键在可接收事件的区域（按钮、拖拽区）也弹出菜单
+// Right-click also opens the menu in areas that receive events (buttons, drag zone)
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   ipcRenderer.send('show-context-menu');
 });
 
 // ============================================================
-// 三、鼠标穿透动态切换
-// 整个窗口默认穿透（setIgnoreMouseEvents(true, {forward:true})），
-// 但鼠标进入顶部 50px 拖拽区、或悬停在两个按钮上时，临时关闭穿透。
+// 3. Dynamic mouse pass-through switching
+// The whole window is click-through by default (setIgnoreMouseEvents(true, {forward:true})),
+// but pass-through is disabled temporarily when the cursor enters the top 50px drag zone or hovers over either button.
 // ============================================================
-// mousemove 节流：用 requestAnimationFrame 合并同一帧内的多次 mousemove，
-// 避免高频移动时每事件都调 getBoundingClientRect 造成不必要开销
+// mousemove throttling: merge multiple mousemove events within the same frame via requestAnimationFrame,
+// avoiding a getBoundingClientRect call per event during fast movement
 let _mouseRAF = false;
 let _mouseEvent = null;
 document.addEventListener('mousemove', (e) => {
-  _mouseEvent = e; // 保留最新事件
+  _mouseEvent = e; // Keep the latest event
   if (_mouseRAF) return;
   _mouseRAF = true;
   requestAnimationFrame(() => {
     _mouseRAF = false;
     const e = _mouseEvent;
     if (!e) return;
-    const inDragZone = e.clientY < 50;       // 顶部 50px 以内
-    // 鼠标在任一按钮范围内时，也需关闭穿透以便点击
+    const inDragZone = e.clientY < 50;       // Within the top 50px
+    // Pass-through must also be disabled over either button so clicks work
     let onButton = false;
     for (const el of [toggleBtn, menuBtn]) {
       const r = el.getBoundingClientRect();
@@ -674,13 +680,13 @@ document.addEventListener('mousemove', (e) => {
         break;
       }
     }
-    ipcRenderer.send('set-ignore-mouse', !(inDragZone || onButton)); // 任一区域→不穿透；其余→穿透
+    ipcRenderer.send('set-ignore-mouse', !(inDragZone || onButton)); // Any of these areas → no pass-through; otherwise → pass-through
   });
 });
 
 // ============================================================
-// 四、窗口自适应高度（内容变化→通知主进程）
-// 仅在高度变化时通知主进程，避免每秒重复 setSize 造成抖动
+// 4. Adaptive window height (content change → notify the main process)
+// Notify the main process only when the height changes, avoiding per-second setSize jitter
 // ============================================================
 function resizeWindow() {
   const h = document.body.scrollHeight;
@@ -690,11 +696,11 @@ function resizeWindow() {
   }
 }
 // ============================================================
-// 四-2、阈值变色告警：CPU/MEM/GPU 超过阈值时数值变红
-// 阈值可在设置中调整，默认 80
+// 4-2. Threshold alert coloring: CPU/MEM/GPU values turn red when above the threshold
+// The threshold is adjustable in settings, default 80
 // ============================================================
 const ALERT_THRESHOLD_KEY = 'alertThreshold';
-let _alertThreshold = 80;  // 默认 80%
+let _alertThreshold = 80;  // Default 80%
 
 function _setAlert(el, pct) {
   if (!el) return;
@@ -718,20 +724,19 @@ ipcRenderer.on('apply-alert-threshold', (_e, val) => {
 })();
 
 // ============================================================
-// 五、日期时间（纯前端，每秒更新一次 DOM）
-// 支持用户自定义：12/24 小时制、是否显示秒、日期格式
+// 5. Date/time (pure frontend, updates the DOM once per second)
+// User-configurable: 12/24-hour clock, whether to show seconds, date format
 // ============================================================
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-const CLOCK_HOUR_KEY = 'clockHour';       // '24' | '12'，默认 '24'
-const CLOCK_SECONDS_KEY = 'clockSeconds'; // bool，默认 true
-const DATE_FMT_KEY = 'dateFormat';       // 'zh' | 'iso' | 'us' | 'dash'，默认 'zh'
+const CLOCK_HOUR_KEY = 'clockHour';       // '24' | '12', default '24'
+const CLOCK_SECONDS_KEY = 'clockSeconds'; // bool, default true
+const DATE_FMT_KEY = 'dateFormat';       // 'zh' | 'iso' | 'us' | 'dash', default 'zh'
 
 let _clockHour = '24';
 let _clockSeconds = true;
 let _dateFormat = 'zh';
 
 function applyClockFormat() {
-  // 立即刷新一次，避免等到下一秒
+  // Refresh immediately instead of waiting for the next second
   updateDateTime();
 }
 
@@ -755,7 +760,7 @@ ipcRenderer.on('apply-date-format', (_e, val) => {
   const h = getPref(CLOCK_HOUR_KEY);
   _clockHour = (h === '12') ? '12' : '24';
   const s = getPref(CLOCK_SECONDS_KEY);
-  _clockSeconds = (s === false) ? false : true;  // 默认 true
+  _clockSeconds = (s === false) ? false : true;  // Default true
   const d = getPref(DATE_FMT_KEY);
   _dateFormat = ['zh', 'iso', 'us', 'dash'].includes(d) ? d : 'zh';
 })();
@@ -765,19 +770,23 @@ function updateDateTime() {
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
-  const w = WEEKDAYS[now.getDay()];
 
-  // 日期部分
+  // Locale-dependent date text (weekday / month names follow the UI language)
+  const clockData = i18n.data().clock || {};
+  const weekday = (clockData.weekdays || [])[now.getDay()] || '';
+  const monthName = (clockData.months || [])[now.getMonth()] || m;
+
+  // Date part
   let datePart;
   switch (_dateFormat) {
     case 'iso':  datePart = `${y}-${m}-${d}`; break;
     case 'us':   datePart = `${m}/${d}/${y}`; break;
-    case 'dash': datePart = `${y}.${m}.${d} ${w}`; break;
+    case 'dash': datePart = i18n.t('clock.dateDotted', { y, m, d, weekday }); break;
     case 'zh':
-    default:     datePart = `${y}年${m}月${d}日 ${w}`; break;
+    default:     datePart = i18n.t('clock.dateLong', { y, m, d, weekday, month: monthName }); break;
   }
 
-  // 时间部分：12/24 小时制 + 可选秒
+  // Time part: 12/24-hour clock + optional seconds
   let hh, suffix = '';
   if (_clockHour === '12') {
     hh = now.getHours() % 12;
@@ -800,7 +809,7 @@ function updateDateTime() {
 updateDateTime();
 setInterval(updateDateTime, 1000);
 
-// 系统运行时间（uptime），格式化：3d 12h 5m
+// System uptime, formatted as: 3d 12h 5m
 function updateUptime() {
   const el = document.getElementById('uptime');
   if (!el || el.style.display === 'none') return;
@@ -809,21 +818,21 @@ function updateUptime() {
   const h = Math.floor((secs % 86400) / 3600);
   const m = Math.floor((secs % 3600) / 60);
   let text;
-  if (d > 0) text = `已运行 ${d}天 ${h}时 ${m}分`;
-  else if (h > 0) text = `已运行 ${h}时 ${m}分`;
-  else text = `已运行 ${m}分`;
+  if (d > 0) text = i18n.t('clock.uptimeDays', { d, h, m });
+  else if (h > 0) text = i18n.t('clock.uptimeHours', { h, m });
+  else text = i18n.t('clock.uptimeMinutes', { m });
   el.textContent = text;
 }
-setInterval(updateUptime, 60000); // 每分钟刷新
+setInterval(updateUptime, 60000); // Refresh every minute
 
 // ============================================================
-// 六、操作系统名称
-// Windows：os.release() 形如 "10.0.22000"，build 号 >= 22000 为 Windows 11
+// 6. OS name
+// Windows: os.release() looks like "10.0.22000"; build >= 22000 means Windows 11
 // ============================================================
 function getOSName() {
   const platform = process.platform;
   if (platform === 'win32') {
-    const release = os.release(); // 形如 "10.0.22631"
+    const release = os.release(); // e.g. "10.0.22631"
     const parts = release.split('.');
     const build = parts.length >= 3 ? parseInt(parts[2], 10) : 0;
     return build >= 22000 ? 'Windows 11' : 'Windows 10';
@@ -834,14 +843,14 @@ function getOSName() {
 document.getElementById('osname').textContent = getOSName();
 
 // ============================================================
-// 七、网速：网卡白名单筛选 + 工具函数
-// 性能优化：接口识别（WMI 查询）移出每秒热路径，改为后台 60s 刷新一次。
-// 热路径只调 si.networkStats()（纯计数器读取，不走 WMI），按缓存接口名过滤。
+// 7. Network speed: NIC whitelist filtering + utility functions
+// Performance: interface detection (WMI query) moved out of the per-second hot path and refreshed in the background every 60s.
+// The hot path only calls si.networkStats() (pure counter reads, no WMI) and filters by the cached interface name.
 // ============================================================
 let prevNet = { rx: 0, tx: 0, ts: 0 };
 const GB = 1024 * 1024 * 1024;
 
-// 虚拟/环回/专用接口关键字黑名单（iface / ifaceName 任一命中即排除）
+// Keyword blacklist for virtual/loopback/dedicated interfaces (excluded if either iface or ifaceName matches)
 const VIRTUAL_KEYWORDS = [
   'loopback', 'vmware', 'virtualbox', 'vbox', 'hyper-v', 'hyperv', 'vethernet',
   '(wsl)', 'wsl', 'docker', 'npcap', 'wan miniport', 'microsoft km-test',
@@ -856,7 +865,7 @@ function isVirtualName(s) {
   return VIRTUAL_KEYWORDS.some(k => l.includes(k.toLowerCase()));
 }
 
-// 缓存活跃接口名（后台刷新，不在每秒热路径里调 WMI）
+// Cache the active interface name (refreshed in the background, no WMI in the per-second hot path)
 let _activeIface = null;
 
 async function refreshActiveIface() {
@@ -865,7 +874,7 @@ async function refreshActiveIface() {
       si.networkGatewayDefault().catch(() => null),
       si.networkInterfaces().catch(() => [])
     ]);
-    // 1) 默认路由网关 IP 与接口 IP 落在同网段 → 就是它
+    // 1) The default gateway IP and an interface IP share the same subnet → that's the one
     if (typeof gw === 'string' && gw) {
       const gwParts = gw.split('.').map(Number);
       const gwValid = gwParts.length === 4 && gwParts.every(n => Number.isInteger(n) && n >= 0 && n < 256);
@@ -880,7 +889,7 @@ async function refreshActiveIface() {
         }
       }
     }
-    // 2) 回退：第一个非虚拟、up、有 ip4 的接口
+    // 2) Fallback: the first non-virtual, up interface that has an ip4 and is not loopback
     for (const n of ifaces || []) {
       if (!n.virtual && !isVirtualName(n.iface) && !isVirtualName(n.ifaceName) &&
           (n.operstate === 'up' || n.operstate === 'unknown') &&
@@ -889,14 +898,14 @@ async function refreshActiveIface() {
         return;
       }
     }
-  } catch (e) { /* 静默失败，下次刷新重试 */ }
+  } catch (e) { /* Fail silently; retry on the next refresh */ }
 }
 
-// 启动时识别一次，之后每 60s 后台刷新（VPN 切换/断线重连时自动跟上）
+// Detect once at startup, then refresh in the background every 60s (keeps up with VPN switches / reconnects)
 refreshActiveIface();
 setInterval(refreshActiveIface, 60000);
 
-// 把字节数/秒格式化为 B/s、KB/s 或 MB/s
+// Format bytes/sec as B/s, KB/s or MB/s
 function formatSpeed(bytesPerSec) {
   if (bytesPerSec < 1024) {
     return `${bytesPerSec.toFixed(0)} B/s`;
@@ -907,7 +916,7 @@ function formatSpeed(bytesPerSec) {
   return `${(bytesPerSec / (1024 * 1024)).toFixed(2)} MB/s`;
 }
 
-// 把分钟数格式化为 "1h12m" 或 "45m"
+// Format minutes as "1h12m" or "45m"
 function formatDuration(minutes) {
   if (minutes <= 0) return '';
   const h = Math.floor(minutes / 60);
@@ -916,28 +925,28 @@ function formatDuration(minutes) {
   return `${m}m`;
 }
 
-// 标记 hwCache 是否有变更，待采集结束后统一写一次文件
-// 提前声明，供 initCPUModel / initGPU 等静态函数设置
+// Flag whether hwCache has changed; written to the file once after collection finishes
+// Declared early so static functions like initCPUModel / initGPU can set it
 let _hwCacheDirty = false;
 
 // ============================================================
-// 八、CPU 静态型号（仅加载时取一次，用 os.cpus() 同步读取，不走 WMI）
+// 8. Static CPU model (fetched once at load via synchronous os.cpus(), no WMI)
 // ============================================================
 function initCPUModel() {
   const el = document.getElementById('cpumodel');
 
-  // 有缓存 → 直接渲染
+  // Cache hit → render directly
   if (hwCache.cpuModel) {
     el.textContent = hwCache.cpuModel;
     el.title = hwCache.cpuModel;
     return;
   }
 
-  // os.cpus() 是同步的，不走 WMI，直接取
+  // os.cpus() is synchronous and does not use WMI, so read it directly
   try {
     const cpus = os.cpus();
     if (cpus && cpus.length > 0 && cpus[0].model) {
-      // 清理冗余标记：Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz → Intel Core i7-9700K @ 3.60GHz
+      // Strip redundant markers: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz → Intel Core i7-9700K @ 3.60GHz
       const model = cpus[0].model
         .replace(/\(R\)/g, '')
         .replace(/\(TM\)/g, '')
@@ -950,27 +959,27 @@ function initCPUModel() {
       _hwCacheDirty = true;
       return;
     }
-  } catch (e) { /* 静默失败 */ }
+  } catch (e) { /* Fail silently */ }
 
   el.textContent = '—';
 }
 initCPUModel();
 
 // ============================================================
-// 八-1b、内存静态规格（DDR4 3200MHz）— 仅加载时取一次，缓存到 hwCache
+// 8-1b. Static memory spec (DDR4 3200MHz) — fetched once at load and cached in hwCache
 // ============================================================
 function initMemSpec() {
   const el = document.getElementById('memspec');
   if (!el || !_memSpecOn) return;
 
-  // 1) 有缓存 → 直接渲染
+  // 1) Cache hit → render directly
   if (hwCache.memSpec) {
     el.textContent = hwCache.memSpec;
     el.title = hwCache.memSpec;
     return;
   }
 
-  // 2) 无缓存 → si.memLayout() 异步查询（带 3s 超时）
+  // 2) Cache miss → async si.memLayout() query (with a 3s timeout)
   (async () => {
     try {
       const layout = await Promise.race([
@@ -978,7 +987,7 @@ function initMemSpec() {
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
       ]);
       if (layout && layout.length > 0) {
-        // 多 DIMM 时取第一条；clockSpeed 单位 MHz
+        // Take the first DIMM when several exist; clockSpeed is in MHz
         const m = layout[0];
         const type = (m.type && String(m.type).toUpperCase()) || '';
         const clock = (typeof m.clockSpeed === 'number' && m.clockSpeed > 0)
@@ -1006,9 +1015,9 @@ function initMemSpec() {
 }
 
 // ============================================================
-// 八-2、GPU 静态信息（仅加载时取一次，名称/显存不会变）
-// 性能优化：有缓存 → 直接渲染，跳过 si.graphics()（WMI 查询太慢）
-//           无缓存 → 先用 PowerShell Win32_VideoController（快），再回退 si.graphics()
+// 8-2. Static GPU info (fetched once at load; name/VRAM never change)
+// Performance: cache hit → render directly, skipping si.graphics() (WMI queries are too slow)
+//            cache miss → try PowerShell Win32_VideoController first (fast), then fall back to si.graphics()
 // ============================================================
 const { exec } = require('child_process');
 
@@ -1024,17 +1033,17 @@ function execCmd(cmd, timeoutMs = 3000) {
 async function initGPU() {
   const el = document.getElementById('gpu');
 
-  // 1) 有缓存 → 直接渲染，不再查询（GPU 型号不会变）
+  // 1) Cache hit → render directly, no query (the GPU model never changes)
   if (hwCache.gpu && hwCache.gpu.model) {
     const parts = [hwCache.gpu.model];
     if (hwCache.gpu.vram) parts.push(`${hwCache.gpu.vram}GB`);
     const text = parts.join(' · ');
     el.textContent = text;
     el.title = text;
-    return; // 跳过 si.graphics()，避免几分钟卡死
+    return; // Skip si.graphics() to avoid minutes-long hangs
   }
 
-  // 2) 无缓存 → 先用 PowerShell WMI 查（比 si.graphics 快 10 倍）
+  // 2) Cache miss → query via PowerShell WMI first (10x faster than si.graphics)
   try {
     const out = await execCmd(
       'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM | ConvertTo-Json"',
@@ -1045,10 +1054,10 @@ async function initGPU() {
     if (ctrl && ctrl.Name) {
       const cleanModel = String(ctrl.Name).replace(/\s+/g, ' ').trim();
       let vramGB = null;
-      // AdapterRAM 单位是字节，但 Win32 32 位字段上限 4GB
+      // AdapterRAM is in bytes, but the Win32 32-bit field caps at 4GB
       if (ctrl.AdapterRAM && ctrl.AdapterRAM > 0) {
         vramGB = Math.round(ctrl.AdapterRAM / (1024 * 1024 * 1024));
-        if (vramGB > 4) vramGB = 4; // 32 位溢出保护
+        if (vramGB > 4) vramGB = 4; // 32-bit overflow guard
       }
       const parts = [cleanModel];
       if (vramGB && vramGB > 0) parts.push(`${vramGB}GB`);
@@ -1059,16 +1068,16 @@ async function initGPU() {
       ipcRenderer.sendSync('set-hw-cache', hwCache);
       return;
     }
-  } catch (e) { /* PowerShell 失败，继续回退 */ }
+  } catch (e) { /* PowerShell failed; continue with the fallback */ }
 
-  // 3) 回退：si.graphics() 带 3s 超时（最后手段）
+  // 3) Fallback: si.graphics() with a 3s timeout (last resort)
   try {
     const g = await Promise.race([
       si.graphics(),
       new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
     ]);
     const ctrl = (g.controllers && g.controllers[0]) || null;
-    const model = ctrl && (ctrl.name || ctrl.model || (ctrl.vendor && `显卡 · ${ctrl.vendor}`));
+    const model = ctrl && (ctrl.name || ctrl.model || (ctrl.vendor && i18n.t('gpu.vendorPrefix', { vendor: ctrl.vendor })));
     if (model) {
       const cleanModel = model.replace(/\s+/g, ' ').trim();
       let vramGB = null;
@@ -1084,14 +1093,14 @@ async function initGPU() {
       ipcRenderer.sendSync('set-hw-cache', hwCache);
       return;
     }
-  } catch (e) { /* 超时：保持 '—' */ }
+  } catch (e) { /* Timeout: keep '—' */ }
 
   el.textContent = '—';
 }
 initGPU();
 
 // ============================================================
-// 九、分指标采集（每指标独立 try/catch，互不影响）
+// 9. Per-metric collection (each metric has its own try/catch and they don't affect each other)
 // ============================================================
 async function safe(fn, timeoutMs = 3000) {
   try {
@@ -1099,41 +1108,41 @@ async function safe(fn, timeoutMs = 3000) {
       fn(),
       new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs))
     ]);
-  } catch (e) { /* 单指标失败/超时不影响其他 */ }
+  } catch (e) { /* A single metric failing/timing out does not affect the others */ }
 }
 
 async function updateCPU() {
   const load = await si.currentLoad();
   const pct = `${Math.round(load.currentLoad)}%`;
   document.getElementById('cpu').textContent = pct;
-  // 紧凑模式同步
+  // Compact mode sync
   const compact = document.getElementById('cpu-compact');
   if (compact) compact.textContent = pct;
-  // 阈值变色
+  // Threshold coloring
   _setAlert(document.getElementById('cpu'), load.currentLoad);
   _setAlert(compact, load.currentLoad);
-  // Sparkline 数据采集
+  // Sparkline data collection
   _pushSpark('cpu', load.currentLoad);
   _drawSpark('spark-cpu', 'cpu', 100);
-  // 每核负载条
+  // Per-core load bars
   updateCPUCores(load);
 }
 
-// CPU 每核负载条：利用 si.currentLoad().cpus[] 数组
+// CPU per-core load bars: uses the si.currentLoad().cpus[] array
 function updateCPUCores(load) {
-  if (!_cpuCoresOn) return;  // 开关关闭时跳过
+  if (!_cpuCoresOn) return;  // Skip when the toggle is off
   const container = document.getElementById('cpucores');
   if (!container) return;
   const cpus = load.cpus;
   if (!cpus || !cpus.length) return;
-  // 首次创建 DOM
+  // Create the DOM on first run
   if (!_coreBarsCreated) {
     container.innerHTML = cpus.map(() =>
       '<div class="core-bar"><div class="core-bar-fill" style="width:0%"></div></div>'
     ).join('');
     _coreBarsCreated = true;
   }
-  // 更新每条宽度
+  // Update each bar's width
   const fills = container.querySelectorAll('.core-bar-fill');
   for (let i = 0; i < cpus.length && i < fills.length; i++) {
     const v = Math.max(0, Math.min(100, cpus[i].load));
@@ -1146,18 +1155,18 @@ async function updateMem() {
   const pct = (mem.active / mem.total) * 100;
   const pctText = `${pct.toFixed(0)}%`;
   const valText = `${(mem.active / GB).toFixed(1)}/${(mem.total / GB).toFixed(1)} GB`;
-  // 百分比模式：38%；数值模式：3.2/8.0 GB
+  // Percent mode: 38%; value mode: 3.2/8.0 GB
   document.getElementById('mem').textContent = isValueMode() ? valText : pctText;
-  // 紧凑模式只写百分比
+  // Compact mode writes only the percentage
   const compact = document.getElementById('mem-compact');
   if (compact) compact.textContent = pctText;
-  // 阈值变色
+  // Threshold coloring
   _setAlert(document.getElementById('mem'), pct);
   _setAlert(compact, pct);
-  // Sparkline 数据采集
+  // Sparkline data collection
   _pushSpark('mem', pct);
   _drawSpark('spark-mem', 'mem', 100);
-  // 缓存内存总量（不变的静态值，下次启动可立即渲染）
+  // Cache total memory (a static value, so it can render instantly on the next launch)
   if (hwCache.memTotal !== mem.total) {
     hwCache.memTotal = mem.total;
     _hwCacheDirty = true;
@@ -1165,16 +1174,16 @@ async function updateMem() {
 }
 
 async function updateDisk() {
-  // 并行：fsSize（容量）+ 可选的磁盘 IO 速度（WMI）
+  // In parallel: fsSize (capacity) + optional disk IO speed (WMI)
   const [raw, ioMap] = await Promise.all([
     si.fsSize(),
     _diskIOOn ? _readDiskIOSpeeds() : Promise.resolve({})
   ]);
-  // 只保留有实际存储空间的盘（过滤空光驱、无介质读卡器、无效盘符等 size=0 的条目）
+  // Keep only drives with real storage (filters out size=0 entries such as empty optical drives, card readers without media, and invalid drive letters)
   const list = (raw || []).filter(f => f && f.size > 0);
   const el = document.getElementById('disklist');
   if (!list.length) {
-    // si.fsSize 暂时失败，用缓存盘列表兜底显示总量
+    // si.fsSize failed temporarily; fall back to the cached disk list to show total capacity
     if (hwCache.disks && hwCache.disks.length) {
       el.innerHTML = hwCache.disks.map(d => {
         const m = d.mount.length > 8 ? d.mount.slice(0, 8) + '…' : d.mount;
@@ -1185,7 +1194,7 @@ async function updateDisk() {
     }
     return;
   }
-  // 缓存磁盘静态信息（mount + size 不变，只有 available 在变）
+  // Cache static disk info (mount + size are fixed; only available changes)
   const newDisks = list.map(f => ({ mount: f.mount || f.fs || '?', size: f.size }));
   const cacheChanged = !hwCache.disks ||
     hwCache.disks.length !== newDisks.length ||
@@ -1197,14 +1206,14 @@ async function updateDisk() {
   el.innerHTML = list.map(f => {
     const used = f.size - f.available;
     const pct = f.size > 0 ? (used / f.size) * 100 : 0;
-    // 盘符/挂载点（Windows 形如 "C:"，macOS/Linux 形如 "/"）
+    // Drive letter / mount point (Windows: "C:", macOS/Linux: "/")
     const mount = f.mount || f.fs || '?';
     const m = mount.length > 8 ? mount.slice(0, 8) + '…' : mount;
-    // 百分比模式：45%；数值模式：230/512 GB
+    // Percent mode: 45%; value mode: 230/512 GB
     const v = isValueMode()
       ? `${(used / GB).toFixed(0)}/${(f.size / GB).toFixed(0)} GB`
       : `${pct.toFixed(0)}%`;
-    // 附加磁盘 IO 速度：↓12M/s ↑3M/s
+    // Append disk IO speed: ↓12M/s ↑3M/s
     let ioText = '';
     if (_diskIOOn && ioMap && ioMap[mount]) {
       const io = ioMap[mount];
@@ -1214,8 +1223,8 @@ async function updateDisk() {
   }).join('');
 }
 
-// 磁盘读写速度查询：PowerShell WMI PerfDisk
-// Name 形如 "0 C:" 或 "_Total"，用正则提取盘符（如 "C:"）
+// Disk read/write speed query: PowerShell WMI PerfDisk
+// Name looks like "0 C:" or "_Total"; a regex extracts the drive letter (e.g. "C:")
 async function _readDiskIOSpeeds() {
   try {
     const out = await execCmd(
@@ -1239,7 +1248,7 @@ async function _readDiskIOSpeeds() {
   } catch (e) { return {}; }
 }
 
-// 格式化磁盘读写速度：B/s → K/s 或 M/s（紧凑显示，节省宽度）
+// Format disk read/write speed: B/s → K/s or M/s (compact display to save width)
 function _fmtDiskSpeed(bytesPerSec) {
   if (!bytesPerSec || bytesPerSec < 1024) return '0K/s';
   if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(0) + 'K/s';
@@ -1249,16 +1258,16 @@ function _fmtDiskSpeed(bytesPerSec) {
 async function updateBattery() {
   const bat = await si.battery();
   const row = document.getElementById('row-power');
-  if (!row) return;  // 行不存在或被用户手动隐藏，跳过
+  if (!row) return;  // Row missing or manually hidden by the user; skip
   const el = document.getElementById('battery');
   if (bat.hasBattery && bat.hasBattery === true) {
-    // 仅在未被用户手动隐藏时才显示
+    // Show only when not manually hidden by the user
     if (getPref('hidden.row-power') !== true) row.style.display = '';
     const parts = [`${bat.percent}%`];
-    if (bat.isCharging) parts.push('充电中');
+    if (bat.isCharging) parts.push(i18n.t('status.charging'));
     const tr = bat.timeRemaining;
     const dur = formatDuration(tr);
-    if (dur) parts.push(`约${dur}`);
+    if (dur) parts.push(i18n.t('status.approx', { dur }));
     el.textContent = parts.join(' · ');
   } else {
     row.style.display = 'none';
@@ -1267,19 +1276,19 @@ async function updateBattery() {
 
 async function updateNet() {
   const rawStats = await si.networkStats();
-  // 时间戳在数据读取后立即取，不包含后续过滤时间，保证 dt 精确
+  // Capture the timestamp right after reading the data, excluding later filtering time so dt stays precise
   const nowTs = Date.now();
 
-  // 按缓存的活跃接口名过滤（纯内存比较，不走 WMI）
+  // Filter by the cached active interface name (pure in-memory comparison, no WMI)
   let net;
   if (_activeIface) {
     net = rawStats.filter(n => n.iface === _activeIface);
   }
   if (!net || !net.length) {
-    // 回退：operstate up + 非虚拟名
+    // Fallback: operstate up + a non-virtual name
     net = rawStats.filter(n => n.operstate === 'up' && !isVirtualName(n.iface));
   }
-  if (!net.length) net = rawStats; // 最后兜底
+  if (!net.length) net = rawStats; // Final fallback
 
   const totalRx = net.reduce((s, n) => s + (n.rx_bytes || 0), 0);
   const totalTx = net.reduce((s, n) => s + (n.tx_bytes || 0), 0);
@@ -1288,7 +1297,7 @@ async function updateNet() {
   let txSpeed = 0;
   if (prevNet.ts > 0) {
     const dt = (nowTs - prevNet.ts) / 1000;
-    if (dt > 0.1) { // 防止 dt 过小导致除零（<100ms 跳过本次）
+    if (dt > 0.1) { // Guard against divide-by-zero from a too-small dt (skip when <100ms)
       rxSpeed = totalRx >= prevNet.rx ? (totalRx - prevNet.rx) / dt : 0;
       txSpeed = totalTx >= prevNet.tx ? (totalTx - prevNet.tx) / dt : 0;
     }
@@ -1299,18 +1308,18 @@ async function updateNet() {
   const txText = `↑ ${formatSpeed(txSpeed)}`;
   document.getElementById('netdown').textContent = rxText;
   document.getElementById('netup').textContent = txText;
-  // Sparkline 数据采集（上下行合计，bytes/s → KB/s 便于可视化）
+  // Sparkline data collection (rx+tx combined, bytes/s → KB/s for easier visualization)
   _pushSpark('net', (rxSpeed + txSpeed) / 1024);
   _drawSpark('spark-net', 'net', null);
-  // 紧凑模式同步
+  // Compact mode sync
   const dc = document.getElementById('netdown-compact');
   const uc = document.getElementById('netup-compact');
   if (dc) dc.textContent = rxText;
   if (uc) uc.textContent = txText;
 }
 
-// WiFi 信号强度：si.wifiConnections() 取当前连接的 signalQuality（0-100）
-// 非 WiFi 环境或查询失败时隐藏
+// WiFi signal strength: signalQuality (0-100) of the current connection via si.wifiConnections()
+// Hidden when not on WiFi or when the query fails
 async function updateWifi() {
   const el = document.getElementById('wifi');
   if (!el || el.style.display === 'none') return;
@@ -1329,15 +1338,15 @@ async function updateWifi() {
         return;
       }
     }
-    // 没连 WiFi：隐藏
+    // Not connected to WiFi: hide
     el.style.display = 'none';
   } catch (e) {
     el.style.display = 'none';
   }
 }
 
-// GPU 实时使用率 + 可选显存占用：PowerShell Win32_PerfFormattedData_GPUAdapter（Windows 专用）
-// 非管理员下也能读，失败时显示 "—"，不影响其他指标
+// GPU real-time utilization + optional VRAM usage: PowerShell Win32_PerfFormattedData_GPUAdapter (Windows only)
+// Readable without admin rights; shows "—" on failure without affecting other metrics
 async function updateGPU() {
   let usageText = '—';
   let vramText = '';
@@ -1360,7 +1369,7 @@ async function updateGPU() {
       }
     }
     if (bestUtil > 0) usageText = `${Math.round(bestUtil)}%`;
-    // 显存占用：3.2G / 8G（总量来自 hwCache.gpu.vram，单位 GB）
+    // VRAM usage: 3.2G / 8G (total comes from hwCache.gpu.vram, in GB)
     if (_gpuRamOn && bestUsedBytes > 0) {
       const usedGB = bestUsedBytes / (1024 * 1024 * 1024);
       const totalGB = (hwCache.gpu && hwCache.gpu.vram) ? hwCache.gpu.vram : null;
@@ -1368,10 +1377,10 @@ async function updateGPU() {
         ? `${usedGB.toFixed(1)}G / ${totalGB}G`
         : `${usedGB.toFixed(1)}G`;
     }
-  } catch (e) { /* 拿不到就保持 — */ }
+  } catch (e) { /* Keep — if unavailable */ }
   const gpuEl = document.getElementById('gpu-compact');
   if (gpuEl) gpuEl.textContent = usageText;
-  // 阈值变色（紧凑模式 GPU 使用率）
+  // Threshold coloring (compact-mode GPU utilization)
   _setAlert(gpuEl, bestUtil);
   const vramEl = document.getElementById('gpuram');
   if (vramEl && _gpuRamOn) {
@@ -1379,8 +1388,8 @@ async function updateGPU() {
   }
 }
 
-// 快指标（CPU/内存/网速）并行采集 + 每指标 3 秒独立超时，每秒刷新
-// _updating guard：防止上一轮还没跑完 setInterval 就触发下一轮（WMI 慢时排队导致 dt 趋零）
+// Fast metrics (CPU/memory/network) collected in parallel with an independent 3s timeout each, refreshed every second
+// _updating guard: prevents setInterval from starting a new round before the previous one finishes (slow WMI queues make dt approach zero)
 let _updating = false;
 async function updateFast() {
   if (_updating) return;
@@ -1401,7 +1410,7 @@ async function updateFast() {
   }
 }
 
-// 慢指标（磁盘/电池/WiFi）并行采集，每 10 秒刷新（变化慢，减少 WMI 开销）
+// Slow metrics (disk/battery/WiFi) collected in parallel, refreshed every 10s (they change slowly; reduces WMI overhead)
 async function updateSlow() {
   await Promise.all([
     safe(updateDisk, 3000),
@@ -1415,10 +1424,32 @@ async function updateSlow() {
   resizeWindow();
 }
 
-// 页面加载时立即执行一次，避免空白；之后快指标 1s、慢指标 10s、GPU 使用率 3s
+// Run once immediately on page load to avoid a blank widget; afterwards fast metrics run at 1s, slow metrics at 10s, GPU usage at 3s
 updateFast();
 updateSlow();
 updateGPU();
 setInterval(updateFast, 1000);
 setInterval(updateSlow, 10000);
 setInterval(updateGPU, 3000);
+
+// ============================================================
+// Language switch: re-render dynamic text in the current window (no page reload needed)
+// ============================================================
+ipcRenderer.on('apply-language', (_e, lang) => {
+  i18n.setLanguage(lang);
+  document.title = i18n.t('app.widgetTitle');
+  document.documentElement.lang = i18n.getLanguage() === 'zh' ? 'zh-CN' : 'en';
+
+  toggleBtn.setAttribute('aria-label', i18n.t('widget.themeAria'));
+  updateToggleUI();
+
+  menuBtn.setAttribute('aria-label', i18n.t('widget.menuAria'));
+  menuBtn.title = i18n.t('widget.menuTitle');
+
+  updateDateTime();
+  updateUptime();
+  updateBattery().catch(() => {});
+});
+
+document.title = i18n.t('app.widgetTitle');
+document.documentElement.lang = i18n.getLanguage() === 'zh' ? 'zh-CN' : 'en';

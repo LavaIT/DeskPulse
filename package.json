@@ -1,7 +1,7 @@
 {
   "name": "desk-pulse",
-  "version": "1.0.8",
-  "description": "DeskPulse · 桌面系统监控小组件 (Electron Widget)。透明、无边框、始终置顶，显示 CPU / 内存 / 存储 / 网络 / GPU / 电池 / 日期，支持深色浅色主题、系统托盘、开机自启。",
+  "version": "1.1.0",
+  "description": "DeskPulse is a transparent, frameless, always-on-top desktop system monitor widget for Windows. Shows CPU, memory, disks, network, GPU, battery and clock, with light/dark themes, tray controls and launch-at-login.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -44,10 +44,13 @@
     },
     "files": [
       "main.js",
+      "i18n.js",
+      "locales/**/*",
       "index.html",
       "renderer.js",
       "style.css",
       "settings.html",
+      "about.html",
       "assets/**/*",
       "node_modules/**/*",
       "package.json"
@@ -65,7 +68,8 @@
       "createStartMenuShortcut": true,
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico",
-      "installerHeaderIcon": "assets/icon.ico"
+      "installerHeaderIcon": "assets/icon.ico",
+      "installerLanguages": ["zh_CN", "en_US"]
     }
   }
 }

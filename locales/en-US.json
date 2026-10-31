@@ -1,0 +1,164 @@
+{
+  "app": {
+    "widgetTitle": "DeskPulse Desktop Monitor",
+    "trayTooltip": "DeskPulse · Desktop System Monitor"
+  },
+  "common": {
+    "dark": "Dark",
+    "light": "Light"
+  },
+  "widget": {
+    "themeManual": "Current: {theme} (manual) | Click to switch, double-click to follow system",
+    "themeAuto": "Current: Follow system ({theme}) | Click to switch manually",
+    "menuAria": "Menu",
+    "menuTitle": "Menu (theme / reset position / quit)",
+    "themeAria": "Toggle theme"
+  },
+  "menu": {
+    "compact": "Compact mode",
+    "moveTo": "Move to",
+    "topLeft": "Top left",
+    "topRight": "Top right",
+    "bottomLeft": "Bottom left",
+    "bottomRight": "Bottom right",
+    "resetTopRight": "Reset to top right",
+    "taskManager": "Task Manager",
+    "resourceMonitor": "Resource Monitor",
+    "settings": "Settings...",
+    "about": "About",
+    "quit": "Quit",
+    "hide": "Hide widget",
+    "show": "Show widget",
+    "quitApp": "Quit DeskPulse"
+  },
+  "settings": {
+    "title": "DeskPulse Settings",
+    "heading": "Settings",
+    "sections": {
+      "general": "General",
+      "appearance": "Appearance",
+      "visibility": "Visible Items",
+      "advanced": "Advanced"
+    },
+    "items": {
+      "language": "Language",
+      "autoLaunch": "Launch at login",
+      "theme": "Theme",
+      "preset": "Color preset",
+      "customAccent": "Custom accent color",
+      "clockHour": "Clock format",
+      "clockSeconds": "Show seconds",
+      "dateFormat": "Date format",
+      "alertThreshold": "Alert threshold",
+      "glass": "Glass effect",
+      "panelOpacity": "Panel opacity",
+      "font": "Font",
+      "displayMode": "Display mode",
+      "uptime": "System uptime",
+      "wifi": "WiFi signal",
+      "sparkline": "Mini trend chart",
+      "cpuCores": "Per-core CPU load",
+      "diskIo": "Disk read/write speed",
+      "gpuRam": "GPU memory usage",
+      "memSpec": "Memory spec",
+      "compact": "Compact mode",
+      "visGpu": "GPU",
+      "visDisk": "Disk",
+      "visNet": "Network",
+      "visCpuModel": "CPU model",
+      "visBattery": "Battery",
+      "resetAll": "Reset settings"
+    },
+    "hints": {
+      "language": "Interface language. Follows the system by default.",
+      "autoLaunch": "Start DeskPulse automatically when you sign in",
+      "theme": "Choose the interface color scheme",
+      "preset": "Accent color and system name color",
+      "customAccent": "Overrides the preset accent (pick a color or reset it)",
+      "clockHour": "Switch between 12 and 24-hour time",
+      "clockSeconds": "Show time down to seconds",
+      "dateFormat": "Layout of the date portion",
+      "alertThreshold": "CPU / memory / GPU values turn red above this level",
+      "glass": "Panel background transparency and blur style",
+      "panelOpacity": "Applies to the Off / Frosted modes only",
+      "panelOpacityDisabled": "Not available in Liquid mode (preserves refraction)",
+      "font": "Choose an interface font (CJK / monospace)",
+      "displayMode": "Show memory and disks as percentages or exact values",
+      "displayModeCompact": "Compact mode always shows percentages",
+      "uptime": "Show uptime below the date",
+      "wifi": "Show current WiFi signal strength in the network row",
+      "sparkline": "Show a 60-second trend line next to CPU / memory / network",
+      "cpuCores": "Show usage for each logical core below the CPU row",
+      "diskIo": "Append per-second read/write speed to each drive (↓12M/s ↑3M/s)",
+      "gpuRam": "Show used / total VRAM (e.g. 3.2G / 8G)",
+      "memSpec": "Show memory type and speed below MEM (e.g. DDR4 3200MHz)",
+      "compact": "Shrink to a single performance row (Ctrl+Alt+M)",
+      "visGpu": "Graphics card model and usage",
+      "visDisk": "Usage of each drive",
+      "visNet": "Upload and download rates",
+      "visCpuModel": "Show the exact CPU model below CPU",
+      "visBattery": "Hidden automatically on desktops; can be disabled on laptops",
+      "resetAll": "Reset all preferences (theme, colors, glass, display mode, clock, threshold, optional toggles, hidden rows, compact mode)"
+    },
+    "options": {
+      "languageAuto": "System",
+      "followSystem": "System",
+      "light": "Light",
+      "dark": "Dark",
+      "dateZh": "Localized",
+      "dateDash": "Dotted",
+      "glassOff": "Off",
+      "glassFrost": "Frosted",
+      "glassLiquid": "Liquid",
+      "displayPercent": "Percent",
+      "displayValue": "Value",
+      "customAccentReset": "Reset",
+      "fontDefault": "Default (monospace stack)",
+      "fontCustom": "Custom…",
+      "fontPreview": "Aa 123 Hello DeskPulse · 01:23:45",
+      "fontPlaceholder": "Enter a font name, e.g. 'JetBrains Mono', monospace"
+    },
+    "presets": {
+      "qinglan": "Teal Blue",
+      "hailan": "Ocean Blue",
+      "cuilv": "Emerald",
+      "zijin": "Purple Gold",
+      "jijian": "Minimal Gray"
+    },
+    "reset": {
+      "button": "Reset to defaults",
+      "confirm": "Reset all settings to defaults?\n\nThis will reset:\n• Theme, colors and glass effect\n• Display mode, clock format and alert threshold\n• Language and all optional toggles (uptime / WiFi / charts, etc.)\n• Hidden metric rows and compact mode\n\nHardware cache and window position are kept."
+    },
+    "footer": "DeskPulse v{version} · GitHub · MIT"
+  },
+  "clock": {
+    "weekdays": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    "months": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    "dateLong": "{month} {d}, {y} {weekday}",
+    "dateDotted": "{y}.{m}.{d} {weekday}",
+    "uptimeDays": "Up {d}d {h}h {m}m",
+    "uptimeHours": "Up {h}h {m}m",
+    "uptimeMinutes": "Up {m}m"
+  },
+  "status": {
+    "charging": "Charging",
+    "approx": "~{dur} left"
+  },
+  "toast": {
+    "hidden": "Hidden {label} (restore in Settings → Visible Items)",
+    "labels": {
+      "gpu": "GPU",
+      "disk": "Disk",
+      "net": "Network",
+      "cpuModel": "CPU model",
+      "power": "Power"
+    }
+  },
+  "gpu": {
+    "vendorPrefix": "GPU · {vendor}"
+  },
+  "about": {
+    "title": "About DeskPulse",
+    "desc": "Desktop system monitor widget<br>Transparent · Frameless · Always on top"
+  }
+}

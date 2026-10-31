@@ -16,6 +16,7 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
+.trae-html-share-packages/
 
 # ===== 日志 =====
 logs/
